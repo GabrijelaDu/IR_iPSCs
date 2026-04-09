@@ -1,0 +1,2 @@
+comparison,group_X,group_Y,n_X,n_Y,n_total,value,group,test,stat,p_value,p_adj
+LL-RIs vs SL-RIs,LL-RIs,SL-RIs,3171,3171,6342,PIR,-,two sided Welch's t-test,49.48964145754722,0.0,0.0

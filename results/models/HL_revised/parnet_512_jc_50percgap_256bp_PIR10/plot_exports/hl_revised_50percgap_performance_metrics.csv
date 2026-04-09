@@ -1,0 +1,11 @@
+model,fold,metrics,AU
+hl_revised_50percgap,1,ROC,0.710451564731853
+hl_revised_50percgap,2,ROC,0.6688646145272856
+hl_revised_50percgap,3,ROC,0.68120245219518
+hl_revised_50percgap,4,ROC,0.7027647026997781
+hl_revised_50percgap,5,ROC,0.7078477519883136
+hl_revised_50percgap,1,PRC,0.7168627497264175
+hl_revised_50percgap,2,PRC,0.6994595433505959
+hl_revised_50percgap,3,PRC,0.701269322567722
+hl_revised_50percgap,4,PRC,0.7157656970058014
+hl_revised_50percgap,5,PRC,0.7287016347470918

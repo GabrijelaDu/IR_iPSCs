@@ -1,0 +1,17 @@
+# Curated GitHub payload for the slim resubmission deliverable.
+
+# Keep only the selected metadata table under data/.
+/data/*
+!/data/metadata_selected.csv
+
+# Keep only model-level plot exports under results/models/.
+/results/models/**
+!/results/models/
+!/results/models/**/
+!/results/models/**/plot_exports/
+!/results/models/**/plot_exports/**
+
+# Repository hygiene.
+**/.ipynb_checkpoints/
+**/__pycache__/
+*.pyc

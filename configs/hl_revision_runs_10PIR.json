@@ -1,0 +1,147 @@
+{
+  "defaults": {
+    "backbone_name": "parnet",
+    "parnet_weights": "/lustre/groups/crna01/projects/collabs/shared/models/parnet/0.5.0_RBPNet-11M.pt",
+    "fasta_path": "resubmission/data/all_vastdb_introns_50fks.fasta",
+    "training_env": "/lustre/groups/crna01/projects/collabs/shared/cenvs/parnet_clean",
+    "modisco_env": "/lustre/groups/crna01/projects/collabs/shared/cenvs/tfmodisco",
+    "interpretation_dirname": "interpretation_fixed",
+    "modisco_prefix": "all",
+    "modisco_sign_multiplier": 1,
+    "n_splits": 5,
+    "random_seed": 42,
+    "flank_length": 256,
+    "batch_size": 64,
+    "num_workers": 4,
+    "model_kwargs": {
+      "feat_dim": 512,
+      "attn_hidden": 256,
+      "use_attention_pooling": true,
+      "use_simple_fusion": false,
+      "use_joint_classifier": true,
+      "use_middle": false
+    },
+    "training_kwargs": {
+      "lr": 0.0001,
+      "backbone_lr_base": 1e-05,
+      "llrd_gamma": 0.6,
+      "weight_decay": 2e-05,
+      "max_epochs": 40,
+      "patience": 7,
+      "freeze_backbone_initial": true,
+      "unfreeze_after_epochs": 3
+    },
+    "umap_kwargs": {
+      "n_neighbors": 50,
+      "min_dist": 0.2,
+      "n_components": 2,
+      "metric": "cosine",
+      "random_state": 42
+    },
+    "pir_nuc_baseline_min": 10.0
+  },
+  "runs": {
+    "hl_revised_20percent": {
+      "description": "Scaled logged half-life model with a 20 percent central gap.",
+      "metadata_csv": "resubmission/data/metadata_selected.csv",
+      "class_column": "hl_gated_intwise_scaled_logged",
+      "class_limits": [
+        -0.914531,
+        -0.611683
+      ],
+      "result_dir": "resubmission/results/models/HL_revised/parnet_512_jc_20percgap_256bp_PIR10",
+      "umap_outputs": [
+        "resubmission/results/models/HL_revised/parnet_512_jc_20percgap_256bp_PIR10/umap_embeddings.csv"
+      ],
+      "umap_columns": [
+        "UMAP1_HLrev",
+        "UMAP2_HLrev"
+      ]
+    },
+    "hl_revised_30percgap": {
+      "description": "Scaled logged half-life model with a 30 percent central gap.",
+      "metadata_csv": "resubmission/data/metadata_selected.csv",
+      "class_column": "hl_gated_intwise_scaled_logged",
+      "class_limits": [
+        -1.009513,
+        -0.533403
+      ],
+      "result_dir": "resubmission/results/models/HL_revised/parnet_512_jc_30percgap_256bp_PIR10",
+      "umap_outputs": [
+        "resubmission/results/models/HL_revised/parnet_512_jc_30percgap_256bp_PIR10/umap_embeddings.csv"
+      ],
+      "umap_columns": [
+        "UMAP1_HLrev",
+        "UMAP2_HLrev"
+      ]
+    },
+    "hl_revised_40percgap": {
+      "description": "Scaled logged half-life model with a 40 percent central gap.",
+      "metadata_csv": "resubmission/data/metadata_selected.csv",
+      "class_column": "hl_gated_intwise_scaled_logged",
+      "class_limits": [
+        -1.131279,
+        -0.452134
+      ],
+      "result_dir": "resubmission/results/models/HL_revised/parnet_512_jc_40percgap_256bp_PIR10",
+      "umap_outputs": [
+        "resubmission/results/models/HL_revised/parnet_512_jc_40percgap_256bp_PIR10/umap_embeddings.csv"
+      ],
+      "umap_columns": [
+        "UMAP1_HLrev",
+        "UMAP2_HLrev"
+      ]
+    },
+    "hl_revised_50percgap": {
+      "description": "Scaled logged half-life model with a 50 percent central gap.",
+      "metadata_csv": "resubmission/data/metadata_selected.csv",
+      "class_column": "hl_gated_intwise_scaled_logged",
+      "class_limits": [
+        -1.342584,
+        -0.364742
+      ],
+      "result_dir": "resubmission/results/models/HL_revised/parnet_512_jc_50percgap_256bp_PIR10",
+      "umap_outputs": [
+        "resubmission/results/models/HL_revised/parnet_512_jc_50percgap_256bp_PIR10/umap_embeddings.csv"
+      ],
+      "umap_columns": [
+        "UMAP1_HLrev",
+        "UMAP2_HLrev"
+      ]
+    },
+    "hl_revised_raw_1p5to4": {
+      "description": "Raw half-life model using values below 1.5 h versus at least 4 h.",
+      "metadata_csv": "resubmission/data/metadata_selected.csv",
+      "class_column": "hl_gated_intwise",
+      "class_limits": [
+        1.5,
+        4.0
+      ],
+      "result_dir": "resubmission/results/models/HL_revised_raw/parnet_512_jc_1p5to4_256bp_PIR10",
+      "umap_outputs": [
+        "resubmission/results/models/HL_revised_raw/parnet_512_jc_1p5to4_256bp_PIR10/umap_embeddings.csv"
+      ],
+      "umap_columns": [
+        "UMAP1_HLrevRaw",
+        "UMAP2_HLrevRaw"
+      ]
+    },
+    "hl_revised_raw_2to4": {
+      "description": "Raw half-life model using values below 2 h versus at least 4 h.",
+      "metadata_csv": "resubmission/data/metadata_selected.csv",
+      "class_column": "hl_gated_intwise",
+      "class_limits": [
+        2.0,
+        4.0
+      ],
+      "result_dir": "resubmission/results/models/HL_revised_raw/parnet_512_jc_2to4_256bp_PIR10",
+      "umap_outputs": [
+        "resubmission/results/models/HL_revised_raw/parnet_512_jc_2to4_256bp_PIR10/umap_embeddings.csv"
+      ],
+      "umap_columns": [
+        "UMAP1_HLrevRaw",
+        "UMAP2_HLrevRaw"
+      ]
+    }
+  }
+}

@@ -1,0 +1,14 @@
+name: resubmission-tfmodisco
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python=3.9
+  - pip
+  - bamtools
+  - bedtools
+  - samtools
+  - meme
+  - pip:
+      - modisco-lite==2.4.0

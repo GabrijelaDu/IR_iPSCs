@@ -1,0 +1,2 @@
+comparison,group_X,group_Y,n_X,n_Y,n_total,value,group,test,statistic,p_value,p_adj
+Retained vs Spliced,Retained,Spliced,734,966,1700,MFE [(kJ/Mol) / Length],-,Welch's t-test,-13.657680438650601,3.971434471965955e-40,3.971434471965955e-40

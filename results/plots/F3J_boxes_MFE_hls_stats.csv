@@ -1,0 +1,2 @@
+comparison,group_X,group_Y,n_X,n_Y,n_total,value,group,test,statistic,p_value,p_adj
+LL-RIs vs SL-RIs,LL-RIs,SL-RIs,2982,2988,5970,MFE [(kJ/Mol) / Length],-,Welch's t-test,-6.690990226043903,2.418918614164414e-11,2.418918614164414e-11

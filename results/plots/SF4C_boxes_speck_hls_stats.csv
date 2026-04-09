@@ -1,0 +1,3 @@
+comparison,group_X,group_Y,n_X,n_Y,n_total,value,group,test,statistic,p_value,p_adj
+Speckle vs non-speckle,non-speckle,speckle,5000,5000,10000,RBP peaks / length,LL-RIs,Welch's t-test,-9.452568574004227,4.113874230676674e-21,8.227748461353348e-21
+Speckle vs non-speckle,non-speckle,speckle,5000,5000,10000,RBP peaks / length,SL-RIs,Welch's t-test,-7.630418097510456,2.5892000885086752e-14,2.5892000885086752e-14
