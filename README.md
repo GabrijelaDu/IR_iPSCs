@@ -1,4 +1,4 @@
-# Resubmission Analysis Workflow
+# Supporting repository for the publication: The periphery of nuclear speckles organizes long-lived intron-retained RNAs into a mitotically resolved distinct nuclear retention compartment
 
 This repository contains the Python notebooks, R scripts, R Markdown notebooks, shell wrappers, configuration files, and exported analysis outputs used to regenerate manuscript figures and train models to predict IR and IR HL.
 
@@ -7,7 +7,6 @@ This repository contains the Python notebooks, R scripts, R Markdown notebooks, 
 ```text
 .
 ├── README.md
-├── README.txt
 ├── environment-parnet_clean.yml
 ├── environment-tfmodisco.yml
 ├── environment-r.yml
