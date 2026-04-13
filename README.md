@@ -1,33 +1,32 @@
 # Resubmission Analysis Workflow
 
-This repository contains the notebooks, scripts, configuration files, and exported analysis outputs used to retrain the revision models and regenerate the manuscript figures, statistics tables, and source-data tables.
-
-The workflow is organized around two entry styles:
-
-- interactive notebook reruns for step-by-step analysis
-- shell and Python scripts for non-interactive batch execution
+This repository contains the Python notebooks, R scripts, R Markdown notebooks, shell wrappers, configuration files, and exported analysis outputs used to regenerate manuscript figures and train models to predict IR and IR HL.
 
 ## Repository Layout
 
 ```text
-resubmission/
+.
 ├── README.md
+├── README.txt
 ├── environment-parnet_clean.yml
 ├── environment-tfmodisco.yml
+├── environment-r.yml
 ├── requirements.txt
 ├── configs/
 ├── data/
 ├── notebooks/
+├── R/
 ├── results/
 └── scripts/
 ```
 
 ## Environments
 
-Two environments are used throughout the workflow:
+Three environments are used in this repository:
 
-- `parnet_clean` for metadata assembly, model training, UMAP export, CAM export, figure generation, and most notebooks
-- `tfmodisco` only for motif discovery and motif report generation
+- `parnet-clean` for metadata assembly, model training, UMAP export, CAM export, figure generation, and Python notebooks
+- `tfmodisco` for motif discovery and motif report generation
+- `r` for the R scripts and R Markdown notebooks in `R/`
 
 ### Main Analysis Environment
 
@@ -35,10 +34,10 @@ Create the main environment:
 
 ```bash
 conda env create -f environment-parnet_clean.yml
-conda activate resubmission-parnet-clean
+conda activate parnet-clean
 ```
 
-Install the Python packages exported from the original `parnet_clean` environment:
+Install the Python packages exported from the original `parnet-clean` environment:
 
 ```bash
 pip install -r requirements.txt
@@ -50,24 +49,27 @@ Install `ir_toolkit` from GitHub:
 pip install git+https://github.com/melonheader/ir_toolkit.git
 ```
 
-Notes:
-
-- `requirements.txt` is a package snapshot from the environment used for the resubmission analyses.
-- A machine-local dependency, `rinalmo @ file:///...`, is not included in `requirements.txt` because it is not portable.
-- GPU-specific packages are kept in `requirements.txt` for fidelity with the original runs.
-
 ### tf-modisco Environment
 
 Create the dedicated motif-analysis environment separately:
 
 ```bash
 conda env create -f environment-tfmodisco.yml
-conda activate resubmission-tfmodisco
+conda activate tfmodisco
 ```
 
-This environment provides the `modisco-lite` Python package together with the MEME suite tools used by `tomtom`.
+This environment provides `modisco-lite` together with the MEME suite tools used by `tomtom`.
 
-## Running The Notebooks
+### R Analysis Environment
+
+Create the R environment for the scripts and notebooks in `R/`:
+
+```bash
+conda env create -f environment-r.yml
+conda activate r
+```
+
+## Running The Python Notebooks
 
 Launch Jupyter from the main analysis environment:
 
@@ -76,7 +78,7 @@ conda activate resubmission-parnet-clean
 jupyter lab
 ```
 
-Use the `resubmission-parnet-clean` kernel for all analysis notebooks. The tf-modisco step is executed through the shell wrapper and uses the dedicated `tfmodisco` environment internally.
+Use the `parnet-clean` kernel for all notebooks in `notebooks/`. The tf-modisco step is executed through the shell wrapper and uses the dedicated `tfmodisco` environment internally.
 
 Notebook guide:
 
@@ -95,9 +97,52 @@ Notebook guide:
 - `notebooks/7.intron_motif_enrichment.ipynb`
   Runs motif-enrichment analyses for intron subsets.
 
-## Main Retraining Workflow
+## Running The R Workflows
 
-The half-life revision workflow is defined by:
+Activate the R environment and run scripts from the repository root:
+
+```bash
+conda activate resubmission-r
+Rscript R/Figure_5/siSON_siSRRM2_revision.R
+```
+
+Short description:
+
+- `R/Correlations_Suppl_Fig_7B.R`
+  Supplementary Figure 7B correlations and plots.
+- `R/Figure_2/Figure_2_stability_01April2026.Rmd`
+  Figure 2 / supplementary stability notebook.
+- `R/Figure_2/Figure_2_stability_09April2026.Rmd`
+  Updated Figure 2 / supplementary stability notebook.
+- `R/Figure_4/Correlations_4G_J.R`
+  Figure 4 correlation tables.
+- `R/Figure_4/TSAseq_code_01April2026.R`
+  Figure 4 TSA-seq overlap analysis.
+- `R/Figure_4/TSAseq_code_02April2026.R`
+  Revised Figure 4 TSA-seq overlap analysis.
+- `R/Figure_4/TSAseq_code_7july2025_GD.R`
+  Earlier TSA-seq workflow snapshot
+- `R/Figure_5/siSON_siSRRM2_revision.R`
+  Figure 5 boxplots and composite panels.
+- `R/Figure_7/CLK_DYRK_CDK1_plotting.R`
+  Figure 7 treatment plots.
+- `R/RANDOM_SPOTS/FINAL_iPS_IR_RNAS_vs_random_spots_KS.R`
+  Random-spot null analysis for iPS cells.
+- `R/RANDOM_SPOTS/FINAL_HUVEC_IR_RNAS_vs_random_spots_KS.R`
+  Random-spot null analysis for HUVEC cells.
+- `R/Suppl_Fig_10B/SRSF7_plotting_stats.R`
+  Supplementary Figure 10B plotting and statistics.
+
+Render the R Markdown notebooks with:
+
+```bash
+conda activate r
+Rscript -e "rmarkdown::render('R/Figure_2/Figure_2_stability_09April2026.Rmd')"
+```
+
+## Model Retraining Workflow
+
+The workflow is defined by:
 
 - `configs/hl_revision_runs.json`
 - `scripts/hl_revision_pipeline.py`
@@ -109,69 +154,13 @@ The half-life revision workflow is defined by:
 ### Inspect Configured Runs
 
 ```bash
-python \
-  resubmission/scripts/hl_revision_pipeline.py list-runs
+python scripts/hl_revision_pipeline.py list-runs
 ```
 
 ### Train One Configured Run
 
 ```bash
-python \
-  resubmission/scripts/hl_revision_pipeline.py train \
-  --run hl_revised_50percgap
-```
-
-Train a single fold:
-
-```bash
-python \
-  resubmission/scripts/hl_revision_pipeline.py train \
-  --run hl_revised_50percgap \
-  --folds 1
-```
-
-### Export UMAP Embeddings
-
-```bash
-python \
-  resubmission/scripts/hl_revision_pipeline.py export-umap \
-  --run hl_revised_50percgap
-```
-
-### Export CAM / tf-modisco Inputs
-
-```bash
-python \
-  resubmission/scripts/hl_revision_pipeline.py export-modisco-inputs \
-  --run hl_revised_50percgap \
-  --cam-modes final_logit_linearized,branch_signed
-```
-
-### Run tf-modisco
-
-```bash
-resubmission/scripts/run_modisco_report.sh \
-  --run hl_revised_50percgap \
-  --cam-mode final_logit_linearized \
-  --motif-db /path/to/pwms_all_motifs_ids.meme
-```
-
-Run the branch-signed interpretation in parallel naming space:
-
-```bash
-resubmission/scripts/run_modisco_report.sh \
-  --run hl_revised_50percgap \
-  --cam-mode branch_signed \
-  --motif-db /path/to/pwms_all_motifs_ids.meme
-```
-
-### Export Per-Run Plots
-
-```bash
-python \
-  resubmission/scripts/export_hl_revision_plots.py \
-  --run hl_revised_50percgap \
-  --cam-mode final_logit_linearized
+python scripts/hl_revision_pipeline.py train --run hl_revised_50percgap
 ```
 
 ## Shell Wrappers
@@ -179,7 +168,7 @@ python \
 For a single run, the main wrapper is:
 
 ```bash
-resubmission/scripts/run_hl_revision_workflow.sh \
+scripts/run_hl_revision_workflow.sh \
   --run hl_revised_50percgap \
   --train \
   --umap \
@@ -193,7 +182,7 @@ resubmission/scripts/run_hl_revision_workflow.sh \
 For all configured runs:
 
 ```bash
-resubmission/scripts/run_all_hl_revision_workflow.sh \
+scripts/run_all_hl_revision_workflow.sh \
   --train \
   --cam-modes final_logit_linearized,branch_signed
 ```
@@ -215,16 +204,14 @@ The figure-remaking notebooks and plot-export scripts write outputs into:
 To consolidate CSV statistics tables into a single workbook:
 
 ```bash
-python resubmission/scripts/merge_csv_to_xlsx.py \
-  --input-dir resubmission/results/plots \
-  --output-xlsx resubmission/results/plots/statistics_tables_unified.xlsx
+python scripts/merge_csv_to_xlsx.py \
+  --input-dir results/plots \
+  --output-xlsx results/plots/statistics_tables_unified.xlsx
 ```
 
 ## Raw Data Processing Helpers
 
-The repository also includes the shell scripts used to download and process the PRJNA608890 raw sequencing data under:
-
-- `scripts/raw_data/PRJNA608890/`
+The repository also includes the shell scripts used to download and process the PRJNA608890 raw sequencing data under `scripts/raw_data/PRJNA608890/`.
 
 Included helpers:
 
@@ -238,22 +225,3 @@ Included helpers:
   Trims, aligns, and deduplicates the ssDRIP-seq reads.
 - `scripts/raw_data/PRJNA608890/process_ssDRIP_macs3.sh`
   Calls strand-specific ssDRIP peaks with `macs3`.
-
-These scripts were copied from the original raw-data processing workspace and are kept as the exact command-line helpers used for download and preprocessing.
-
-## Recommended Order
-
-For a full rerun, the usual order is:
-
-1. Run `notebooks/1.reassemble_metadata.ipynb` to rebuild `metadata_selected.csv`.
-2. Run `notebooks/2.hl_revision_workflow.ipynb` or the shell wrappers to retrain models and export UMAP, CAM, tf-modisco, and per-run plotting outputs.
-3. Run `notebooks/3.remake_fig3.ipynb`, `notebooks/4.remake_sfig4.ipynb`, and `notebooks/5.remake_sfig5.ipynb` to regenerate the manuscript figures and source tables.
-4. Run `scripts/merge_csv_to_xlsx.py` to collect the exported statistics CSVs into one workbook if needed.
-
-## Key Outputs
-
-- `data/metadata_selected.csv`
-- `results/plots/*.svg`
-- `results/plots/*_source.csv`
-- `results/plots/*stats*.csv`
-- `results/models/*/plot_exports/*`

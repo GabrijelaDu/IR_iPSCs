@@ -1,0 +1,21 @@
+name: r
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - r-base=4.3
+  - r-here
+  - r-tidyverse
+  - r-readxl
+  - r-patchwork
+  - r-pheatmap
+  - r-rcolorbrewer
+  - r-broom
+  - r-purrr
+  - r-readr
+  - r-rmarkdown
+  - r-knitr
+  - r-cairo
+  - bioconductor-genomicranges
+  - bioconductor-iranges

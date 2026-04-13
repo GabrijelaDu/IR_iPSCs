@@ -1,4 +1,4 @@
-name: resubmission-tfmodisco
+name: tfmodisco
 channels:
   - conda-forge
   - bioconda

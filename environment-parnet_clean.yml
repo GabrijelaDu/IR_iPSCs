@@ -1,4 +1,4 @@
-name: resubmission-parnet-clean
+name: parnet-clean
 channels:
   - conda-forge
   - bioconda
