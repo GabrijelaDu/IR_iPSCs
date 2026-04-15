@@ -2,28 +2,64 @@
 title: "Figure_2_stability_groups"
 output: html_document
 date: '2025-04-13'
-editor_options: 
+editor_options:
   chunk_output_type: console
 ---
-#This script will regenerate Fig. 2C, E, G and Supplementary Fig. 2B
+
+# Figure 2 stability groups
+#
+# This script regenerates Fig. 2C, E, G and Supplementary Fig. 2B.
+#
+# Expected repository structure:
+# Figure_2/
+#   ├── data/
+#   │   └── merged_data_GC_filtered.csv
+#   ├── results/
+#   └── scripts/
+#       └── Figure_2_stability_groups.Rmd
+#
+# This script assumes it is run from the scripts/ folder.
+#
+# Input file:
+# merged_data_GC_filtered.csv is a filtered table in which introns were
+# retained only if they had:
+# - at least 5 non-missing nuclear PIR values across the time course
+# - Nuc_UT_TPM_mean >= 5
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-knitr::opts_knit$set(root.dir = here::here("R", "Figure_2"))
-
-merged_data_path <- here::here("data", "merged_data_GC2.tsv")
-if (!file.exists(merged_data_path)) {
-  stop("Missing input file: ", merged_data_path, call. = FALSE)
-}
 ```
 
 ```{r}
-library(dplyr);library(pheatmap);library(RColorBrewer);library(ggplot2);library(tidyr);library(patchwork)
+suppressPackageStartupMessages({
+  library(dplyr)
+  library(pheatmap)
+  library(RColorBrewer)
+  library(ggplot2)
+  library(tidyr)
+  library(patchwork)
+  library(readr)
+  library(purrr)
+  library(broom)
+})
 ```
+
+# Input and output paths
+```{r}
+input_file <- "../data/merged_data_GC_filtered.csv"
+output_dir <- "../results"
+
+dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
+```
+
 # Load data
 ```{r}
-merged_data_GC <- read.delim(merged_data_path, stringsAsFactors = FALSE)
+merged_data_GC_filtered <- read.csv(input_file, stringsAsFactors = FALSE)
 
-merged_data_GC <- merged_data_GC %>% 
+# Set working directory for all output files written below.
+setwd(output_dir)
+
+merged_data_GC_filtered <- merged_data_GC_filtered %>% 
   mutate(
     Nuc_UT_mean = as.numeric(as.character(Nuc_UT_mean)),
     Nuc_30_mean = as.numeric(as.character(Nuc_30_mean)),
@@ -34,7 +70,7 @@ merged_data_GC <- merged_data_GC %>%
     Cyt_2h_mean = as.numeric(as.character(Cyt_2h_mean)),
     Cyt_4h_mean = as.numeric(as.character(Cyt_4h_mean)))
 
-merged_data_GC <- merged_data_GC %>%
+merged_data_GC_filtered <- merged_data_GC_filtered %>%
   mutate(
     Nuc_A_UT_IR_stability = Nuc_A_UT_1.x / Nuc_UT_mean,
     Nuc_B_UT_IR_stability = Nuc_B_UT_1.x / Nuc_UT_mean,
@@ -52,7 +88,7 @@ merged_data_GC <- merged_data_GC %>%
 
 ```{r}
 # Create new columns comparing the stability of RNA in the nucleus
-merged_data_GC_filtered <- merged_data_GC %>%
+merged_data_GC_filtered <- merged_data_GC_filtered %>%
   mutate(Nuc_UT_TPM_stability = Nuc_UT_TPM_mean / Nuc_UT_TPM_mean,  # Reference of 1 for UT
          Nuc_30_TPM_stability = Nuc_30_TPM_mean / Nuc_UT_TPM_mean,
          Nuc_2h_TPM_stability = Nuc_2h_TPM_mean / Nuc_UT_TPM_mean,
@@ -86,14 +122,7 @@ merged_data_GC_filtered <- merged_data_GC_filtered %>%
          Cyt_4h_IR_stability = Cyt_4h_mean / Cyt_UT_mean)
 ```
 
-#Filter out rows with 3 or more non-NAs in Nuc IR fractions
-```{r}
-merged_data_GC_filtered <- merged_data_GC_filtered %>%
-  mutate(non_na_count = rowSums(!is.na(dplyr::select(., Nuc_A_UT_1.x, Nuc_B_UT_1.x, Nuc_A_30_1.x, Nuc_B_30_1.x, Nuc_A_2h_1.x, Nuc_B_2h_1.x, Nuc_A_4h_1.x, Nuc_B_4h_1.x)))) %>%
-  filter(non_na_count >= 5)
-
-```
-# For gene_orientated studies sometimes you need to filter the data to keep only the intron with the highest Nuc_UT_mean for each gene
+# For gene-orientated studies sometimes you need to filter the data to keep only the intron with the highest Nuc_UT_mean for each gene
 ```{r}
 merged_data_GC_filtered_GENE <- merged_data_GC_filtered %>%
   group_by(GENE) %>%
@@ -104,7 +133,7 @@ merged_data_GC_filtered_GENE <- merged_data_GC_filtered %>%
 # Assign the stability to introns
 ```{r}
 #--------------------------------------------#
-#### Assign stability, here I care about introns so I dont need to filter overlaping genes
+#### Assign stability to introns
 #--------------------------------------------#
 IR_UT <- merged_data_GC_filtered %>%
   filter(
@@ -133,7 +162,6 @@ stableR4h <- merged_data_GC_filtered %>%
     Nuc_4h_mean >= 25
   ) %>% mutate(stability = "stable 4h")
 
-
 unstableR30min <- merged_data_GC_filtered %>%
   filter(
     Nuc_UT_mean >= 30 &
@@ -146,7 +174,6 @@ unstableR30min <- merged_data_GC_filtered %>%
       (Nuc_A_UT_1.x >= 25 & is.na(Nuc_B_UT_1.x))
     )) %>%
   mutate(stability = "unstable30min")
-
 
 unstableR2h <- merged_data_GC_filtered %>%
   filter(
@@ -192,7 +219,7 @@ sum(is.na(noIR_GENE$Nuc_UT_mean))
 combined_data <- bind_rows(stableR4h, unstableR4h, unstableR30min, unstableR2h, noIR)
 ```
 
-###same settings at 50%
+### same settings at 50%
 ```{r}
 # IR at UT (50 cutoff)
 IR_UT_50cut <- subset(merged_data_GC_filtered,
@@ -242,6 +269,10 @@ unstableR4h_50cut <- subset(
   Nuc_2h_IR_stability >= 0.5 #&
 ) %>% mutate(stability = "unstable 4h") 
 
+noIR_50cut <- merged_data_GC_filtered %>%
+  filter(Nuc_UT_mean < 50) %>%
+  mutate(stability = "no IR")
+
 # Final combined dataset for 50% IR cutoff
 combined_data_50cut <- bind_rows(
   stableR4h_50cut,
@@ -255,7 +286,6 @@ combined_data_50cut <- bind_rows(
 ### Intron differences with different cutoff criteria 30%:
 ```{r}
 combined_dataTPMno100 <- combined_data %>%
-  filter(Nuc_UT_TPM_mean >= 5) %>% 
   filter(is.na(Cyt_A_UT_1.x) | is.na(Cyt_B_UT_1.x) | #keep is.na because otherwise they get moved
   (Cyt_A_UT_1.x < 99 & Cyt_B_UT_1.x < 99))
 
@@ -274,85 +304,13 @@ summary_table_no100 <- combined_dataTPMno100 %>%
     min_LENGTH    = min(LENGTH, na.rm = TRUE),
     max_LENGTH    = max(LENGTH, na.rm = TRUE))
 
-## Check filtering didn't affect the results
 print(summary_table_no100)
-
-# Filter the two groups of interest
-group1 <- combined_dataTPMno100 %>% filter(stability == "stable 4h")
-group2 <- combined_dataTPMno100 %>% filter(stability == "unstable30min")
-
-# Define base data
-base_group <- combined_dataTPMno100 %>% filter(stability == "unstable30min")
-# Initialize list to store results
-length_tests <- list()
-
-# Define comparison groups
-comparison_groups <- c("stable 4h", "unstable2h", "unstable 4h")
-
-# Loop through each group and perform Wilcoxon test vs unstable30min
-for (grp in comparison_groups) {
-  group <- combined_dataTPMno100 %>% filter(stability == grp)
-
-  test_result <- wilcox.test(group$LENGTH, base_group$LENGTH, alternative = "two.sided", exact = FALSE)
-
-  length_tests[[grp]] <- list(
-    group_vs_unstable30min = grp,
-    p_value = test_result$p.value,
-    statistic = test_result$statistic,
-    method = test_result$method
-  )
-}
-
-# Convert results to data frame for display
-length_results_df <- do.call(rbind, lapply(length_tests, as.data.frame))
-print(length_results_df)
-
-# Wilcoxon test for GC content
-gc_test <- wilcox.test(group1$GC_Content, group2$GC_Content, alternative = "two.sided", exact = FALSE)
-
-# Wilcoxon test for intron length
-length_test <- wilcox.test(group1$LENGTH, group2$LENGTH, alternative = "two.sided", exact = FALSE)
-
-# Print results
-cat("GC Content - Wilcoxon Test:\n")
-print(gc_test)
-
-cat("\nIntron Length - Wilcoxon Test:\n")
-print(length_test)
-
-# Define base data
-base_group <- combined_dataTPMno100 %>% filter(stability == "unstable30min")
-
-# Initialize list to store results
-gc_tests <- list()
-
-# Define comparison groups
-comparison_groups <- c("stable 4h", "unstable2h", "unstable 4h")
-
-# Loop through each group and perform Wilcoxon test vs unstable30min
-for (grp in comparison_groups) {
-  group <- combined_dataTPMno100 %>% filter(stability == grp)
-
-  test_result <- wilcox.test(group$GC_Content, base_group$GC_Content, alternative = "two.sided", exact = FALSE)
-
-  gc_tests[[grp]] <- list(
-    group_vs_unstable30min = grp,
-    p_value = test_result$p.value,
-    statistic = test_result$statistic,
-    method = test_result$method
-  )
-}
-
-# Convert results to data frame for display
-gc_results_df <- do.call(rbind, lapply(gc_tests, as.data.frame))
-print(gc_results_df)
 ```
 
-###same summary tables for 50% 
+### same summary tables for 50%
 ```{r}
 # Create TPM-filtered datasets from 50% IR cutoff classifications
 combined_dataTPMno100_50cut <- combined_data_50cut %>%
-  filter(Nuc_UT_TPM_mean >= 5) %>%
    filter(is.na(Cyt_A_UT_1.x) | is.na(Cyt_B_UT_1.x) | 
          (Cyt_A_UT_1.x < 99 & Cyt_B_UT_1.x < 99))
 
@@ -372,59 +330,7 @@ summary_table_no100_50cut <- combined_dataTPMno100_50cut %>%
     max_LENGTH    = max(LENGTH, na.rm = TRUE)
   )
 
-# Print summaries, check filtering didnt affect the results
 print(summary_table_no100_50cut)
-
-# Wilcoxon test between two IR stability groups (50% cutoff)
-group1_50cut <- combined_dataTPMno100_50cut %>% filter(stability == "stable 4h")
-group2_50cut <- combined_dataTPMno100_50cut %>% filter(stability == "unstable30min")
-
-# GC content test
-gc_test_50cut <- wilcox.test(group1_50cut$GC_Content, group2_50cut$GC_Content,
-                             alternative = "two.sided", exact = FALSE)
-
-# Intron length test
-length_test_50cut <- wilcox.test(group1_50cut$LENGTH, group2_50cut$LENGTH,
-                                 alternative = "two.sided", exact = FALSE)
-
-# Print test results
-cat("GC Content - Wilcoxon Test (50% cutoff):\n")
-print(gc_test_50cut)
-
-cat("\nIntron Length - Wilcoxon Test (50% cutoff):\n")
-print(length_test_50cut)
-
-# Initialize list to store results
-gc_tests <- list()
-
-# Define comparison groups
-comparison_groups <- c("stable 4h", "unstable2h", "unstable 4h")
-
-# Define the base group for comparison
-base_group <- combined_dataTPMno100_50cut %>%
-  filter(stability == "unstable30min")
-
-# Loop through each group and perform Wilcoxon test vs unstable30min
-for (grp in comparison_groups) {
-  group <- combined_dataTPMno100_50cut %>%
-    filter(stability == grp)
-  
-  test_result <- wilcox.test(group$GC_Content, base_group$GC_Content,
-                             alternative = "two.sided", exact = FALSE)
-  
-  gc_tests[[grp]] <- list(
-    group_vs_unstable30min = grp,
-    p_value = test_result$p.value,
-    statistic = test_result$statistic,
-    method = test_result$method
-  )
-}
-
-# Convert results to a data frame for display
-gc_results_df_50cut <- do.call(rbind, lapply(gc_tests, as.data.frame))
-
-# Print the results
-print(gc_results_df_50cut)
 ```
 
 ### plot for IR stability over time, length, PIR UT, GC percentage at PIR 30% cutoff
@@ -436,7 +342,7 @@ myStabColors <- colorRampPalette(c("darkred", "darkgray"))(4)
 # Prepare long-format data for violin plots
 combined_violin_long <- combined_dataTPMno100 %>%
   filter(stability %in% c("unstable30min", "unstable2h", "unstable 4h", "stable 4h")) %>%
-  dplyr::select(GENE, stability,
+  dplyr::select(GENE, COORD, EVENT, stability,
                 Nuc_UT_mean, Nuc_30_mean, Nuc_2h_mean, Nuc_4h_mean) %>%
   pivot_longer(
     cols = starts_with("Nuc_"),
@@ -482,7 +388,55 @@ p <- ggplot(combined_violin_long, aes(x = TimePoint, y = NuclearMean, fill = Tim
     strip.text = element_text(face = "bold", size = 13)
   )
 
-p
+ggsave(
+  filename = "Figure_2C_IR_stability_timecourse.pdf",
+  plot = p,
+  device = "pdf",
+  width = 10,
+  height = 8,
+  units = "in"
+)
+# Count unique EVENTs per stability class
+event_counts_ut <- combined_dataTPMno100 %>%
+  filter(stability %in% c("unstable30min", "unstable2h", "unstable 4h", "stable 4h")) %>%
+  mutate(
+    stability = factor(stability,
+                       levels = c("unstable30min", "unstable2h", "unstable 4h", "stable 4h"))
+  ) %>%
+  count(stability, name = "n_EVENT")
+
+event_counts_ut
+
+# Barplot
+p_event_bar <- ggplot(event_counts_ut, aes(x = stability, y = n_EVENT, fill = stability)) +
+  geom_col(width = 0.7, alpha = 0.9) +
+  geom_text(aes(label = n_EVENT), vjust = -0.4, size = 4) +
+  scale_fill_manual(values = myStabColors) +
+  labs(
+    title = "Number of introns per stability class",
+    x = "Stability Group",
+    y = "Number of introns (EVENTs)"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "none",
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.line.x = element_line(color = "black"),
+    axis.line.y = element_line(color = "black"),
+    axis.ticks = element_line(color = "black"),
+    axis.text = element_text(color = "black")
+  ) +
+  expand_limits(y = max(event_counts_ut$n_EVENT) * 1.1)
+
+ggsave(
+  filename = "Suppl_2A_IR_stability_barplot.pdf",
+  plot = p_event_bar,
+  device = "pdf",
+  width = 10,
+  height = 8,
+  units = "in"
+)
 
 # Calculate mean NuclearMean PIR per time point and stability group
 pir_summary <- combined_violin_long %>%
@@ -498,8 +452,9 @@ pir_summary <- combined_violin_long %>%
 # View the table
 print(pir_summary)
 
-###NUCLEAR IR levels
+write_csv(pir_summary, "Figure_2C_pir_summary.csv")
 
+### NUCLEAR PIR levels
 # Calculate y-axis breaks and upper limit
 ymax <- max(combined_dataTPMno100$Nuc_UT_mean, na.rm = TRUE)
 ybreaks <- pretty(c(0, ymax))
@@ -525,7 +480,14 @@ p_nuc_ut <- combined_dataTPMno100 %>%
     legend.position = "none"
   )
 
-p_nuc_ut
+ggsave(
+  filename = "Fig_2_p_nuc_ut.pdf",
+  plot = p_nuc_ut,
+  device = "pdf",
+  width = 10,
+  height = 8,
+  units = "in"
+)
 
 ## LENGTH
 p_length_log <- combined_dataTPMno100 %>%
@@ -550,9 +512,16 @@ p_length_log <- combined_dataTPMno100 %>%
     panel.grid.minor = element_blank()
   )
 
-p_length_log
+ggsave(
+  filename = "Fig_2_p_length_log.pdf",
+  plot = p_length_log,
+  device = "pdf",
+  width = 10,
+  height = 8,
+  units = "in"
+)
 
-####GC %
+#### GC %
 ymax_gc <- max(combined_dataTPMno100$GC_Content, na.rm = TRUE)
 ybreaks_gc <- pretty(c(0, ymax_gc))
 upper_limit_gc <- max(ybreaks_gc, 100)  # Ensure it reaches at least 100
@@ -580,14 +549,17 @@ p_gc <- combined_dataTPMno100 %>%
     panel.grid.minor = element_blank()
   )
 
-p_gc
-
-combined_plot <- (p_nuc_ut | p_gc) /
-                 (p_length_log | p3) #p3 is generated after selecting GENES later
-combined_plot
+ggsave(
+  filename = "Fig_2_p_gc.pdf",
+  plot = p_gc,
+  device = "pdf",
+  width = 10,
+  height = 8,
+  units = "in"
+)
 ```
 
-#the same plot for 50% cutoff
+# the same plot for 50% cutoff
 ```{r}
 ### 1. Prepare long-format data for violin plots
 combined_violin_long <- combined_dataTPMno100_50cut %>%
@@ -620,7 +592,7 @@ mean_points <- combined_violin_long %>%
   ungroup()
 
 # Plot nuclear PIR violin plot
-p <- ggplot(combined_violin_long, aes(x = TimePoint, y = NuclearMean, fill = TimePoint)) +
+p_50 <- ggplot(combined_violin_long, aes(x = TimePoint, y = NuclearMean, fill = TimePoint)) +
   geom_violin(trim = FALSE, scale = "width", alpha = 0.7) +
   geom_boxplot(width = 0.1, outlier.shape = NA, fill = "white") +
   facet_wrap(~ stability, ncol = 2, scales = "fixed") +
@@ -639,8 +611,15 @@ p <- ggplot(combined_violin_long, aes(x = TimePoint, y = NuclearMean, fill = Tim
     strip.text = element_text(face = "bold", size = 13)
   )
 
-# Show plot
-p
+# Save plot
+ggsave(
+  filename = "Figure_2_p_50.pdf",
+  plot = p_50,
+  device = "pdf",
+  width = 10,
+  height = 8,
+  units = "in"
+)
 
 # Summary table
 pir_summary_50cut <- combined_violin_long %>%
@@ -654,13 +633,14 @@ pir_summary_50cut <- combined_violin_long %>%
   arrange(stability, TimePoint)
 
 print(pir_summary_50cut)
+write_csv(pir_summary_50cut, "Figure_2_pir_summary_50cut.csv")
 
-### 2. Basal Nuclear IR Plot
+### 2. Basal Nuclear PIR Plot
 ymax <- max(combined_dataTPMno100_50cut$Nuc_UT_mean, na.rm = TRUE)
 ybreaks <- pretty(c(0, ymax))
 upper_limit <- max(ybreaks) + 10
 
-p_nuc_ut <- combined_dataTPMno100_50cut %>%
+p_nuc_ut_50 <- combined_dataTPMno100_50cut %>%
   filter(stability %in% c("unstable30min", "unstable2h", "unstable 4h", "stable 4h")) %>%
   mutate(stability = factor(stability, levels = c("unstable30min", "unstable2h", "unstable 4h", "stable 4h"))) %>%
   ggplot(aes(x = stability, y = Nuc_UT_mean, fill = stability)) +
@@ -680,8 +660,17 @@ p_nuc_ut <- combined_dataTPMno100_50cut %>%
     legend.position = "none"
   )
 
+ggsave(
+  filename = "Figure_2_p_nuc_ut_50.pdf",
+  plot = p_nuc_ut_50,
+  device = "pdf",
+  width = 10,
+  height = 8,
+  units = "in"
+)
+
 ### 3. Intron Length (log10)
-p_length_log <- combined_dataTPMno100_50cut %>%
+p_length_log_50 <- combined_dataTPMno100_50cut %>%
   filter(stability %in% c("unstable30min", "unstable2h", "unstable 4h", "stable 4h"),
          LENGTH > 0) %>%
   mutate(stability = factor(stability, levels = c("unstable30min", "unstable2h", "unstable 4h", "stable 4h"))) %>%
@@ -701,12 +690,21 @@ p_length_log <- combined_dataTPMno100_50cut %>%
     panel.grid.minor = element_blank()
   )
 
+ggsave(
+  filename = "Figure_2_p_length_log_50.pdf",
+  plot = p_length_log_50,
+  device = "pdf",
+  width = 10,
+  height = 8,
+  units = "in"
+)
+
 ### 4. GC Content
 ymax_gc <- max(combined_dataTPMno100_50cut$GC_Content, na.rm = TRUE)
 ybreaks_gc <- pretty(c(0, ymax_gc))
 upper_limit_gc <- max(ybreaks_gc, 100)
 
-p_gc <- combined_dataTPMno100_50cut %>%
+p_gc_50 <- combined_dataTPMno100_50cut %>%
   filter(stability %in% c("unstable30min", "unstable2h", "unstable 4h", "stable 4h")) %>%
   mutate(stability = factor(stability, levels = c("unstable30min", "unstable2h", "unstable 4h", "stable 4h"))) %>%
   ggplot(aes(x = stability, y = GC_Content, fill = stability)) +
@@ -725,16 +723,21 @@ p_gc <- combined_dataTPMno100_50cut %>%
     panel.grid.minor = element_blank()
   )
 
-# Combine plots
-combined_plot_50cut <- (p_nuc_ut | p_gc) /
-                 (p_length_log | p3_50cut) # p3_50cut is generated after selecting GENES later
+ggsave(
+  filename = "Figure_2_p_gc_50.pdf",
+  plot = p_gc_50,
+  device = "pdf",
+  width = 10,
+  height = 8,
+  units = "in"
+)
 ```
 
 #############
-#generating stable and unstable GENES, 30% cutoff
+# Classify genes into stable and unstable groups, 30% PIR cutoff
 #############
 ```{r}
-#Check overlapping introns between groups
+# Check overlapping introns between groups
 sets_list <- list(
   "Stable 4h" = unique(stableR4h$COORD),
   "Unstable 4h" = unique(unstableR4h$COORD),
@@ -742,17 +745,12 @@ sets_list <- list(
   "Unstable 2h" = unique(unstableR2h$COORD),
   "No IR" = unique(noIR$COORD))
 
-### Check overlap between GENES in different groups ####
-# First, make a list of genes for each stability category of introns
 sets_list <- list(
   "Stable 4h" = unique(stableR4h$GENE),
   "Unstable 4h" = unique(unstableR4h$GENE),
   "Unstable 30min" = unique(unstableR30min$GENE),
   "Unstable 2h" = unique(unstableR2h$GENE))
 
-###------------------------------------------------------------------------------####
-# ---- Now eliminate overlapping GENES favoring the longer stability group -----######
-# ---- Option 1: Extract exclusive genes from each set individually ----
 exclusive_by_set <- lapply(names(sets_list), function(set_name) {
   current_set <- sets_list[[set_name]]
   # Combine all the genes in the other sets into one vector:
@@ -760,15 +758,9 @@ exclusive_by_set <- lapply(names(sets_list), function(set_name) {
   setdiff(current_set, other_sets)})
 names(exclusive_by_set) <- names(sets_list)
 
-# View the exclusive (non-overlapping) genes in each category:
-exclusive_by_set  # This is a list where each element contains the non-overlapping genes for that category
-exclusive_by_set[["Unstable 30min"]]
-
-# If you want a union of all genes that appear in only one category, you can combine them:
 non_overlapping_genes <- unlist(exclusive_by_set)
 non_overlapping_genes
 
-### CLEANING over lapping genes ###
 exclusive_unstable30min <- setdiff(
   sets_list[["Unstable 30min"]],
   union(union(sets_list[["Stable 4h"]], sets_list[["Unstable 4h"]]), sets_list[["Unstable 2h"]]))
@@ -779,21 +771,18 @@ exclusive_unstable2h <- setdiff(
 
 exclusive_unstable4h <- setdiff(unstableR4h$GENE, stableR4h$GENE)
 
-### STEP 2. Check if GENES still overlapp
 sets_list_updated <- list(
   "Stable 4h"      = unique(stableR4h$GENE),
   "Unstable 4h"    = unique(exclusive_unstable4h),
   "Unstable 30min" = unique(exclusive_unstable30min),
   "Unstable 2h"    = unique(exclusive_unstable2h))
 
-### STEP 4. Compare the Union of Genes Before and After Filtering
 initial_genes <- unique(c(
   stableR4h$GENE,
   unstableR4h$GENE,
   unstableR30min$GENE,
   unstableR2h$GENE))
 
-# For the filtered union, we use the updated sets (note that unstable4h_exclusive is part of the union)
 filtered_genes <- unique(c(
   stableR4h$GENE,
   exclusive_unstable4h,              # Already removed genes overlapping stableR4h
@@ -833,21 +822,18 @@ gene_stability_df <- bind_rows(
   df_unstable2h)
 gene_stability_df_unique <- gene_stability_df %>%
   distinct(GENE, .keep_all = TRUE)  # Keep only one row per gene
-
 ```
 
-###for 50% cutoff stable and unstable GENEs
+# Classify genes into stable and unstable groups, 50% PIR cutoff
 ```{r}
-# COORD-level overlap (50% cutoff)
 sets_list_50cut_coord <- list(
   "Stable 4h"       = unique(stableR4h_50cut$COORD),
-  "Unstable 4h"     = unique(unstableR4h_cleaned_50cut$COORD),
-  "Unstable 30min"  = unique(unstableR30min_cleaned_50cut$COORD),
-  "Unstable 2h"     = unique(unstableR2h_cleaned_50cut$COORD),
+  "Unstable 4h"     = unique(unstableR4h_50cut$COORD),
+  "Unstable 30min"  = unique(unstableR30min_50cut$COORD),
+  "Unstable 2h"     = unique(unstableR2h_50cut$COORD),
   "No IR"           = unique(noIR_50cut$COORD)
 )
 
-# GENE-level overlap (50% cutoff)
 sets_list_50cut_gene <- list(
   "Stable 4h"       = unique(stableR4h_50cut$GENE),
   "Unstable 4h"     = unique(unstableR4h_50cut$GENE),
@@ -856,7 +842,6 @@ sets_list_50cut_gene <- list(
   # "No IR" can be included if desired
 )
 
-# Exclusive genes per category
 exclusive_by_set_50cut <- lapply(names(sets_list_50cut_gene), function(set_name) {
   current_set <- sets_list_50cut_gene[[set_name]]
   other_sets <- unlist(sets_list_50cut_gene[names(sets_list_50cut_gene) != set_name])
@@ -864,13 +849,8 @@ exclusive_by_set_50cut <- lapply(names(sets_list_50cut_gene), function(set_name)
 })
 names(exclusive_by_set_50cut) <- names(sets_list_50cut_gene)
 
-# Direct access
-exclusive_by_set_50cut[["Unstable 30min"]]
-
-# Union of all non-overlapping genes
 non_overlapping_genes_50cut <- unlist(exclusive_by_set_50cut)
 
-# Manual cleaning (preferred longer stability)
 exclusive_unstable30min_50cut <- setdiff(
   sets_list_50cut_gene[["Unstable 30min"]],
   union(union(sets_list_50cut_gene[["Stable 4h"]], sets_list_50cut_gene[["Unstable 4h"]]),
@@ -883,11 +863,10 @@ exclusive_unstable2h_50cut <- setdiff(
 )
 
 exclusive_unstable4h_50cut <- setdiff(
-  unstableR4h_cleaned_50cut$GENE,
+  unstableR4h_50cut$GENE,
   stableR4h_50cut$GENE
 )
 
-# Updated gene sets after filtering
 sets_list_updated_50cut <- list(
   "Stable 4h"      = unique(stableR4h_50cut$GENE),
   "Unstable 4h"    = unique(exclusive_unstable4h_50cut),
@@ -895,7 +874,6 @@ sets_list_updated_50cut <- list(
   "Unstable 2h"    = unique(exclusive_unstable2h_50cut)
 )
 
-# Compare gene set sizes before/after filtering
 initial_genes_50cut <- unique(c(
   stableR4h_50cut$GENE,
   unstableR4h_50cut$GENE,
@@ -919,7 +897,6 @@ if (setequal(initial_genes_50cut, filtered_genes_50cut)) {
   cat("The union of genes differs between the initial and filtered sets.\n")
 }
 
-# Create labeled gene data frame
 df_stable4h_50cut <- stableR4h_50cut %>%
   dplyr::select(GENE) %>%
   mutate(GENE_stability = "stable_4h")
@@ -933,7 +910,6 @@ df_unstable30min_50cut <- data.frame(GENE = exclusive_unstable30min_50cut,
 df_unstable2h_50cut <- data.frame(GENE = exclusive_unstable2h_50cut,
                                   GENE_stability = "unstable_2h")
 
-# Final gene stability annotation table
 gene_stability_df_50cut <- bind_rows(
   df_stable4h_50cut,
   df_unstable4h_50cut,
@@ -943,13 +919,17 @@ gene_stability_df_50cut <- bind_rows(
 
 gene_stability_df_unique_50cut <- gene_stability_df_50cut %>%
   distinct(GENE, .keep_all = TRUE)
-
 ```
 
-### LINE PLOT STABILITY, GO AND NUC ENRICHMENT 30% ###
+### Line plots of RNA stability and nuclear enrichment at the 30% PIR cutoff ###
 ```{r}
-# --- STEP 1: Filter the Combined Data for Exclusive Genes ---
-##Use these filtering conditions for RNA STABILITY in the nucleus and in the cytoplasm. In order to monitor RNA stability in the cytoplasm we filtered lowly expressed genes in the cytoplasm, RAD52 smRNA FISH was used to set the minimum threshold, which among our IR mRNAs exhibited the lowest cytoplasmic abundance (mean of one molecule per cytoplasm per cell), corresponded to 7 TPM in the cytoplasm. 
+# For RNA stability analyses in the nucleus and cytoplasm, we applied expression
+# thresholds to remove low-abundance transcripts. To assess cytoplasmic RNA
+# stability, we required Cyt and Nuc UT_TPM_mean >= 7. This threshold was based on RAD52
+# smRNA FISH measurements, as RAD52 showed the lowest cytoplasmic abundance among
+# the IR mRNAs analyzed, corresponding to a mean of approximately one molecule
+# per cytoplasm per cell.
+
 combined_dataTPMno100 <- combined_data %>%
  filter(Nuc_UT_TPM_mean >= 7 & Cyt_UT_TPM_mean >= 7) %>%
   filter(is.na(Cyt_A_UT_1.x) | is.na(Cyt_B_UT_1.x) | #keep is.na because otherwise they get moved
@@ -959,17 +939,15 @@ combined_exclusive <- combined_dataTPMno100 %>%
   filter(GENE %in% gene_stability_df_unique$GENE) %>%
   left_join(gene_stability_df_unique, by = "GENE") %>%
   filter(stability != "no IR")
+sum(duplicated(combined_exclusive$EVENT))
 
-#I dont want to have repeated rows (intros) for the same genes:
 combined_exclusive_unique <- combined_exclusive %>%
   distinct(GENE, .keep_all = TRUE)
 sum(duplicated(combined_exclusive_unique$GENE))
 
-##here if I want to look at specific gene groups(but keep in mind that now introns are randomly selected)
 stable4h_genes_only <- combined_exclusive_unique %>%
   filter(GENE_stability == "stable_4h")
 
-##check relevant columns
 subset_combined_exclusive <- combined_exclusive %>%
   dplyr::select(
     GENE, COORD, LENGTH,
@@ -984,7 +962,6 @@ subset_combined_exclusive <- combined_exclusive %>%
     Cyt_UT_IR_stability, Cyt_30_IR_stability, Cyt_2h_IR_stability, Cyt_4h_IR_stability,
     stability, GENE_stability)
 
-# --- STEP 2: Pivot the Data from Wide to Long Format ---
 long_exclusive_data <- combined_exclusive_unique %>%
   pivot_longer(
     cols = c("Nuc_UT_TPM_stability", "Nuc_30_TPM_stability", 
@@ -996,23 +973,14 @@ long_exclusive_data <- combined_exclusive_unique %>%
     values_to = "TPM_stability") %>%
   mutate(Time = factor(Time, levels = c("UT", "30", "2h", "4h")))
 
-# --- STEP 3: Remove the "no IR" Category and Set Factor Levels for 'stability' ---
-# First, filter out rows where 'stability' is "no IR"
 long_exclusive_data <- long_exclusive_data %>%
   filter(stability != "no IR") %>%  # Remove rows with "no IR"
   mutate(stability = factor(as.character(stability),
                             levels = c("unstable30min", "unstable2h", "unstable 4h", "stable 4h")))
 
-# --- (Optional) Verify the Exclusive Gene Filtering ---
-unique_genes_per_group <- long_exclusive_data %>%
-  group_by(stability) %>%
-  summarize(n_genes = n_distinct(GENE))
-print(unique_genes_per_group)
-
-# --- STEP 4: Plot the Mean TPM Stability Over Time, Color-Coded by Category ---
 myStabColors <- colorRampPalette(c("darkgray", "darkred"))(4)
 
-l <- ggplot(long_exclusive_data, aes(x = Time, y = TPM_stability, color = GENE_stability, group = GENE_stability)) +
+l_30 <- ggplot(long_exclusive_data, aes(x = Time, y = TPM_stability, color = GENE_stability, group = GENE_stability)) +
   stat_summary(fun.data = mean_se, geom = "ribbon", aes(fill = GENE_stability), alpha = 0.2, color = NA) +  # Add ribbon first
   stat_summary(fun = mean, geom = "line", size = 1.2) +
   stat_summary(fun = mean, geom = "point", size = 3) +
@@ -1037,57 +1005,119 @@ l <- ggplot(long_exclusive_data, aes(x = Time, y = TPM_stability, color = GENE_s
     axis.ticks = element_line(color = "black"),
     plot.title = element_text(hjust = 0.5, face = "bold", size = 16))
 
-l
-###stability summary
-# Summary: Mean TPM stability per group, time point, and compartment
-# ---- Step 1: Summarize TPM stability ----
+ggsave(
+  filename = "Figure_2_l_30.pdf",
+  plot = l_30,
+  device = "pdf",
+  width = 10,
+  height = 8,
+  units = "in"
+)
+
 stability_summary <- long_exclusive_data %>%
   group_by(GENE_stability, Time, Compartment) %>%
   summarise(
     mean_TPM_stability   = mean(TPM_stability, na.rm = TRUE),
     median_TPM_stability = median(TPM_stability, na.rm = TRUE),
     sd_TPM_stability     = sd(TPM_stability, na.rm = TRUE),
-    n                    = n(),
+    n                    = sum(!is.na(TPM_stability)),
     .groups = "drop"
   )
 
-# Separate for nucleus and cytoplasm
-stability_summary_nuc <- stability_summary %>% filter(Compartment == "Nuc")
-stability_summary_cyt <- stability_summary %>% filter(Compartment == "Cyt")
+# ------------------------------------------------------------------------------
+# 2. Safe Welch t-test helper
+# ------------------------------------------------------------------------------
 
-# ---- Step 2: Pairwise Wilcoxon tests (within each time point) ----
-# Filter only nuclear data
-data_for_stats <- long_exclusive_data %>%
-  filter(Compartment == "Nuc")
+safe_welch_test <- function(x, y) {
+  x <- x[!is.na(x)]
+  y <- y[!is.na(y)]
+  
+  n1 <- length(x)
+  n2 <- length(y)
+  
+  sd1 <- if (n1 > 1) sd(x) else NA_real_
+  sd2 <- if (n2 > 1) sd(y) else NA_real_
+  
+  # not enough observations
+  if (n1 < 2 || n2 < 2) {
+    return(tibble(
+      statistic = NA_real_,
+      p_value   = NA_real_,
+      method    = "Welch's t-test not computed: fewer than 2 observations in at least one group"
+    ))
+  }
+  
+  # constant groups
+  if (!is.na(sd1) && !is.na(sd2) && sd1 == 0 && sd2 == 0) {
+    if (mean(x) == mean(y)) {
+      return(tibble(
+        statistic = NA_real_,
+        p_value   = 1,
+        method    = "Both groups constant and identical"
+      ))
+    } else {
+      return(tibble(
+        statistic = NA_real_,
+        p_value   = NA_real_,
+        method    = "Welch's t-test not computed: both groups constant but with different means"
+      ))
+    }
+  }
+  
+  if (!is.na(sd1) && sd1 == 0) {
+    return(tibble(
+      statistic = NA_real_,
+      p_value   = NA_real_,
+      method    = "Welch's t-test not computed: group1 is constant"
+    ))
+  }
+  
+  if (!is.na(sd2) && sd2 == 0) {
+    return(tibble(
+      statistic = NA_real_,
+      p_value   = NA_real_,
+      method    = "Welch's t-test not computed: group2 is constant"
+    ))
+  }
+  
+  # try Welch t-test
+  out <- tryCatch(
+    {
+      tt <- t.test(x, y, var.equal = FALSE, alternative = "two.sided")
+      tibble(
+        statistic = unname(tt$statistic),
+        p_value   = tt$p.value,
+        method    = tt$method
+      )
+    },
+    error = function(e) {
+      tibble(
+        statistic = NA_real_,
+        p_value   = NA_real_,
+        method    = paste("Welch's t-test failed:", e$message)
+      )
+    }
+  )
+  
+  out
+}
 
-# Perform pairwise comparisons at each time point
-pairwise_pvals <- data_for_stats %>%
-  group_by(Time) %>%
-  nest() %>%
-  ungroup() %>%
-  mutate(
-    pairwise_tests = map2(data, Time, ~ {
-      pairwise_results <- combn(unique(.x$GENE_stability), 2, simplify = FALSE)
-      map_dfr(pairwise_results, function(grps) {
-        test_data <- .x %>% filter(GENE_stability %in% grps)
-        w_test <- wilcox.test(TPM_stability ~ GENE_stability, data = test_data, exact = FALSE)
-        tibble(
-          Time = .y,
-          group1 = grps[1],
-          group2 = grps[2],
-          p_value = w_test$p.value,
-          statistic = w_test$statistic,
-          method = w_test$method
-        )
-      })
-    })
-  ) %>%
-  dplyr::select(pairwise_tests) %>%
-  unnest(pairwise_tests)
+# ---  Calculate the log2 Fold Change for Nuclear Enrichment ---
+combined_dataTPMno100 <- combined_data %>%
+  filter(is.na(Cyt_A_UT_1.x) | is.na(Cyt_B_UT_1.x) |
+   (Cyt_A_UT_1.x < 99 & Cyt_B_UT_1.x < 99))
 
-# --- Step 1: Calculate the log2 Fold Change for Nuclear Enrichment ---
-# First, filter out rows with "no IR", recalc log2FC, and set the factor levels for stability
-combined_exclusive_filtered <- combined_exclusive %>%
+combined_exclusive <- combined_dataTPMno100 %>%
+  filter(GENE %in% gene_stability_df_unique$GENE) %>%
+  left_join(gene_stability_df_unique, by = "GENE") %>%
+  filter(stability != "no IR")
+sum(duplicated(combined_exclusive$GENE))
+
+combined_exclusive_unique <- combined_exclusive %>%
+  distinct(GENE, .keep_all = TRUE)
+sum(duplicated(combined_exclusive_unique$GENE))
+
+combined_exclusive_filtered <- combined_exclusive_unique %>%
   #filter(stability != "no IR") %>%
   mutate(
     nuc_enrichment_log2FC = log2(Nuc_UT_TPM_mean / Cyt_UT_TPM_mean),
@@ -1095,7 +1125,6 @@ combined_exclusive_filtered <- combined_exclusive %>%
                        levels = c("unstable30min", "unstable2h", "unstable 4h", "stable 4h"))
   )
 
-# Create the Violin Plot using a color grade (myStabColors) and allow negative values
 p3 <- ggplot(combined_exclusive_filtered, aes(x = stability, y = nuc_enrichment_log2FC, fill = stability)) +
   geom_violin(trim = FALSE, alpha = 0.7) +                
   geom_boxplot(width = 0.1, outlier.shape = NA, fill = "white") +
@@ -1117,62 +1146,31 @@ p3 <- ggplot(combined_exclusive_filtered, aes(x = stability, y = nuc_enrichment_
     plot.title = element_text(hjust = 0.5, face = "bold", size = 16)
   )
 
-print(p3)
-
-# Summary statistics for log2FC by stability group
-library(dplyr); library(tidyr); library(purrr); library(broom); library(readr)
-
-# ---- Step 1: Compute summary statistics ----
-log2fc_summary <- combined_exclusive_filtered %>%
-  group_by(stability) %>%
-  summarise(
-    mean_log2FC   = mean(nuc_enrichment_log2FC, na.rm = TRUE),
-    median_log2FC = median(nuc_enrichment_log2FC, na.rm = TRUE),
-    sd_log2FC     = sd(nuc_enrichment_log2FC, na.rm = TRUE),
-    min_log2FC    = min(nuc_enrichment_log2FC, na.rm = TRUE),
-    max_log2FC    = max(nuc_enrichment_log2FC, na.rm = TRUE),
-    n             = n(),
-    .groups = "drop"
-  )
-
-# ---- Step 2: Pairwise Wilcoxon tests ----
-# Get all pairwise combinations of stability groups
-pairwise_groups <- combn(unique(combined_exclusive_filtered$stability), 2, simplify = FALSE)
-
-# Run Wilcoxon tests for each pair
-log2fc_pairwise <- map_dfr(pairwise_groups, function(grps) {
-  test_data <- combined_exclusive_filtered %>% filter(stability %in% grps)
-  w_test <- wilcox.test(nuc_enrichment_log2FC ~ stability, data = test_data, exact = FALSE)
-  tibble(
-    group1 = grps[1],
-    group2 = grps[2],
-    p_value = w_test$p.value,
-    statistic = w_test$statistic,
-    method = w_test$method
-  )
-})
-
+ggsave(
+  filename = "Figure_2_p3_30.pdf",
+  plot = p3,
+  device = "pdf",
+  width = 10,
+  height = 8,
+  units = "in"
+)
 ```
 
-##line plot for 50%
+### Line plots of RNA stability and nuclear enrichment at the 50% PIR cutoff ###
 ```{r}
-# Step 1: Filter for 50% cutoff and reasonable TPMs
 combined_dataTPMno100_50cut <- combined_data_50cut %>%
   filter(Nuc_UT_TPM_mean >= 7 & Cyt_UT_TPM_mean >= 7) %>%
   filter(is.na(Cyt_A_UT_1.x) | is.na(Cyt_B_UT_1.x) |
          (Cyt_A_UT_1.x < 99 & Cyt_B_UT_1.x < 99))
 
-# Step 2: Merge with exclusive gene assignments (from 50% Venn analysis)
 combined_exclusive_50cut <- combined_dataTPMno100_50cut %>%
   filter(GENE %in% gene_stability_df_unique_50cut$GENE) %>%
   left_join(gene_stability_df_unique_50cut, by = "GENE") %>%
   filter(stability != "no IR")
 
-# Step 3: Keep only one intron per gene
 combined_exclusive_unique_50cut <- combined_exclusive_50cut %>%
   distinct(GENE, .keep_all = TRUE)
 
-# Subset relevant columns
 subset_combined_exclusive_50cut <- combined_exclusive_50cut %>%
   dplyr::select(
     GENE, COORD, LENGTH,
@@ -1187,7 +1185,6 @@ subset_combined_exclusive_50cut <- combined_exclusive_50cut %>%
     Cyt_UT_IR_stability, Cyt_30_IR_stability, Cyt_2h_IR_stability, Cyt_4h_IR_stability,
     stability, GENE_stability)
 
-# Step 4: Pivot to long format for plotting
 long_exclusive_data_50cut <- combined_exclusive_unique_50cut %>%
   pivot_longer(
     cols = c("Nuc_UT_TPM_stability", "Nuc_30_TPM_stability", 
@@ -1200,17 +1197,17 @@ long_exclusive_data_50cut <- combined_exclusive_unique_50cut %>%
   mutate(Time = factor(Time, levels = c("UT", "30", "2h", "4h")),
          stability = factor(as.character(stability),
                             levels = c("unstable30min", "unstable2h", "unstable 4h", "stable 4h")))
+
 long_exclusive_data_50cut$GENE_stability <- factor(
   long_exclusive_data_50cut$GENE_stability,
   levels = c("unstable_30min", "unstable_2h", "unstable_4h", "stable_4h")
 )
-# Step 5: Check gene distribution
+
 long_exclusive_data_50cut %>%
   group_by(stability) %>%
   summarize(n_genes = n_distinct(GENE)) %>%
   print()
 
-# Step 6: TPM stability over time plot
 myStabColors <- colorRampPalette(c("darkgray", "darkred"))(4)
 l_50cut <- ggplot(long_exclusive_data_50cut, aes(x = Time, y = TPM_stability, color = GENE_stability, group = GENE_stability)) +
   stat_summary(fun.data = mean_se, geom = "ribbon", aes(fill = GENE_stability), alpha = 0.2, color = NA) +
@@ -1234,67 +1231,115 @@ l_50cut <- ggplot(long_exclusive_data_50cut, aes(x = Time, y = TPM_stability, co
   )
 
 # Display the updated plot
-print(l_50cut)
+ggsave(
+  filename = "Figure_2_l_50cut.pdf",
+  plot = l_50cut,
+  device = "pdf",
+  width = 10,
+  height = 8,
+  units = "in"
+)
 
-# ---- Step 1: Summarize TPM stability ----
-stability_summary_50cut <- long_exclusive_data_50cut %>%
+stability_summary_50 <- long_exclusive_data_50cut %>%
   group_by(GENE_stability, Time, Compartment) %>%
   summarise(
     mean_TPM_stability   = mean(TPM_stability, na.rm = TRUE),
     median_TPM_stability = median(TPM_stability, na.rm = TRUE),
     sd_TPM_stability     = sd(TPM_stability, na.rm = TRUE),
-    n                    = n(),
+    n                    = sum(!is.na(TPM_stability)),
     .groups = "drop"
   )
 
-# Separate for nucleus and cytoplasm
-stability_summary_nuc_50cut <- stability_summary_50cut %>% filter(Compartment == "Nuc")
-stability_summary_cyt_50cut <- stability_summary_50cut %>% filter(Compartment == "Cyt")
+# ------------------------------------------------------------------------------
+# 2. Safe Welch t-test helper
+# ------------------------------------------------------------------------------
 
-# ---- Step 2: Pairwise Wilcoxon tests (within each time point) ----
-# Filter only nuclear data
-data_for_stats_50cut <- long_exclusive_data_50cut %>%
-  filter(Compartment == "Nuc")
+safe_welch_test <- function(x, y) {
+  x <- x[!is.na(x)]
+  y <- y[!is.na(y)]
 
-# Perform pairwise comparisons at each time point
-pairwise_pvals_50cut <- data_for_stats_50cut %>%
-  group_by(Time) %>%
-  nest() %>%
-  ungroup() %>%
-  mutate(
-    pairwise_tests = map2(data, Time, ~ {
-      pairwise_results <- combn(unique(.x$GENE_stability), 2, simplify = FALSE)
-      map_dfr(pairwise_results, function(grps) {
-        test_data <- .x %>% filter(GENE_stability %in% grps)
-        w_test <- wilcox.test(TPM_stability ~ GENE_stability, data = test_data, exact = FALSE)
-        tibble(
-          Time = .y,
-          group1 = grps[1],
-          group2 = grps[2],
-          p_value = w_test$p.value,
-          statistic = w_test$statistic,
-          method = w_test$method
-        )
-      })
-    })
-  ) %>%
-  dplyr::select(pairwise_tests) %>%
-  unnest(pairwise_tests)
+  n1 <- length(x)
+  n2 <- length(y)
 
-# Step 8: Violin plot of log2 nuclear enrichment
-##use these just for GO and nuc enrichment (because these are the same ones that we had for lenght and GC
+  sd1 <- if (n1 > 1) sd(x) else NA_real_
+  sd2 <- if (n2 > 1) sd(y) else NA_real_
+
+  if (n1 < 2 || n2 < 2) {
+    return(tibble(
+      statistic = NA_real_,
+      p_value   = NA_real_,
+      method    = "Welch's t-test not computed: fewer than 2 observations in at least one group"
+    ))
+  }
+
+  if (!is.na(sd1) && !is.na(sd2) && sd1 == 0 && sd2 == 0) {
+    if (mean(x) == mean(y)) {
+      return(tibble(
+        statistic = NA_real_,
+        p_value   = 1,
+        method    = "Both groups constant and identical"
+      ))
+    } else {
+      return(tibble(
+        statistic = NA_real_,
+        p_value   = NA_real_,
+        method    = "Welch's t-test not computed: both groups constant but with different means"
+      ))
+    }
+  }
+
+  if (!is.na(sd1) && sd1 == 0) {
+    return(tibble(
+      statistic = NA_real_,
+      p_value   = NA_real_,
+      method    = "Welch's t-test not computed: group1 is constant"
+    ))
+  }
+
+  if (!is.na(sd2) && sd2 == 0) {
+    return(tibble(
+      statistic = NA_real_,
+      p_value   = NA_real_,
+      method    = "Welch's t-test not computed: group2 is constant"
+    ))
+  }
+
+  out <- tryCatch(
+    {
+      tt <- t.test(x, y, var.equal = FALSE, alternative = "two.sided")
+      tibble(
+        statistic = unname(tt$statistic),
+        p_value   = tt$p.value,
+        method    = tt$method
+      )
+    },
+    error = function(e) {
+      tibble(
+        statistic = NA_real_,
+        p_value   = NA_real_,
+        method    = paste("Welch's t-test failed:", e$message)
+      )
+    }
+  )
+
+  out
+}
+
+# ------------------------------------------------------------------------------------------------------
+# Violin plot of log2 nuclear enrichment
 combined_dataTPMno100_50cut <- combined_data_50cut %>%
-  filter(Nuc_UT_TPM_mean >= 5 & Cyt_UT_TPM_mean >= 1) %>%
-  filter(is.na(Cyt_A_UT_1.x) | is.na(Cyt_B_UT_1.x) | 
-  (Cyt_A_UT_1.x < 99 & Cyt_B_UT_1.x < 99))
+   filter(is.na(Cyt_A_UT_1.x) | is.na(Cyt_B_UT_1.x) | 
+         (Cyt_A_UT_1.x < 99 & Cyt_B_UT_1.x < 99))
 
-# Step 2: Merge with exclusive gene assignments (from 50% Venn analysis)
 combined_exclusive_50cut <- combined_dataTPMno100_50cut %>%
   filter(GENE %in% gene_stability_df_unique_50cut$GENE) %>%
   left_join(gene_stability_df_unique_50cut, by = "GENE") %>%
   filter(stability != "no IR")
 
-combined_exclusive_filtered_50cut <- combined_exclusive_50cut %>%
+combined_exclusive_unique_50cut <- combined_exclusive_50cut %>%
+  distinct(GENE, .keep_all = TRUE)
+
+combined_exclusive_filtered_50cut <- combined_exclusive_unique_50cut %>%
   filter(stability != "no IR") %>%
   mutate(nuc_enrichment_log2FC = log2(Nuc_UT_TPM_mean / Cyt_UT_TPM_mean))
 
@@ -1317,6 +1362,12 @@ p3_50cut <- ggplot(combined_exclusive_filtered_50cut, aes(x = stability, y = nuc
         axis.ticks = element_line(color = "black"),
         plot.title = element_text(hjust = 0.5, face = "bold", size = 16))
 
-print(p3_50cut)
-
+ggsave(
+  filename = "Figure_2_p3_50cut.pdf",
+  plot = p3_50cut,
+  device = "pdf",
+  width = 10,
+  height = 8,
+  units = "in"
+)
 ```

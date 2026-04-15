@@ -5,15 +5,9 @@ suppressPackageStartupMessages({
   library(ggplot2)
 })
 
-analysis_dir <- here::here("R", "RANDOM_SPOTS")
-setwd(analysis_dir)
-
 # =========================================================
 # iPS IR-RNAs vs RANDOM spots (SC35 & U2)
-#
-# Goal (paper claim):
-#   "IR-RNAs are closer to nuclear speckles than expected under random distribution"
-#
+
 # Primary test:
 #   - Build equal-weight mixture null across 10 random nuclei
 #   - Convert IR distances to percentiles p = F_mix(d)
@@ -21,29 +15,40 @@ setwd(analysis_dir)
 #   - ONE-SIDED 1-sample KS test (alternative="greater") = enrichment near speckles
 #   - BH-FDR on p_ks_closer within each target (SC35, U2)
 #
-# Output includes:
-#   - Median and mean shifts (delta_median, delta_mean)
-#   - Two "closer vs not closer" calls based on median and mean shift separately
+#Output includes:
+  #   - delta_median and delta_mean vs random mixture expectation
+  #   - closer / not closer calls based on median and mean shifts
+  #   - overlay density plots for U2 and SC35
+  #
+  # Expected repository structure:
+  # Figure_4_distance/
+  #   └── RANDOM_SPOTS/
+  #       ├── HUVEC/
+  #       ├── iPS/
+  #       ├── results/
+  #       ├── scripts/
+#       │   ├── FINAL_HUVEC_IR_RNAs_vs_random_spots_KS.R
+#       │   └── FINAL_iPS_IR_RNAs_vs_random_spots_KS.R
+#       ├── Distance_to_speckles_HUVECs.xlsx
+#       └── Distance_to_speckles_iPSCs.xlsx
+#
+# This script assumes it is run from:
+# RANDOM_SPOTS/scripts/
 # =========================================================
 
 # -------------------------
 # INPUTS
 # -------------------------
-file_path  <- file.path(analysis_dir, "Distance_to_speckles_GD_2_5.xlsx")
-random_dir <- file.path(analysis_dir, "iPS")
+file_path  <- "../Distance_to_speckles_iPSCs.xlsx"
+random_dir <- "../iPS"
+output_dir <- "../results"
 
-if (!file.exists(file_path)) {
-  stop("Missing input file: ", file_path, call. = FALSE)
-}
-if (!dir.exists(random_dir)) {
-  stop("Missing random-spot directory: ", random_dir, call. = FALSE)
-}
-
+dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 IR_RNAs_to_plot <- c(
-  "BRD8 I9", "CENPT I11", "COG4 I7", "AASS I13", "DDX17 I11", "DNMT3B I10 SS",
-  "EZH2 I10", "EZH2 I12", "FANCA I5", "LAMA5 I34 SS", "MEG3 I4", "METTL3 I8_9",
-  "PTBP1 I9 SS", "RAD52 I10", "SFPQ I9", "SON I8", "TELO2 I17", "TERT I11",
-  "TUG1 I1", "WEE1 I9"
+  "BRD8", "CENPT", "COG4", "AASS", "DDX17", "DNMT3B",
+  "EZH2 I10", "FANCA", "LAMA5", "MEG3", "METTL3",
+  "PTBP1", "RAD52", "SFPQ", "SON", "TELO2", "TERT",
+  "TUG1", "WEE1"
 )
 
 # -------------------------
@@ -119,42 +124,6 @@ build_mixture_null <- function(target = c("SC35","U2")) {
   )
 }
 
-sample_from_mixture <- function(n, rand_by_nuc) {
-  Kloc <- length(rand_by_nuc)
-  nuc_idx <- sample.int(Kloc, size = n, replace = TRUE)
-  vapply(nuc_idx, function(i) sample(rand_by_nuc[[i]], size = 1), numeric(1))
-}
-
-plot_random_ecdfs <- function(null_obj) {
-  target <- null_obj$target
-  rand_by_nuc <- null_obj$rand_by_nuc
-  ecdfs <- lapply(rand_by_nuc, ecdf)
-  
-  all_rand <- unlist(rand_by_nuc)
-  xs <- seq(min(all_rand), max(all_rand), length.out = 400)
-  
-  df <- do.call(rbind, lapply(seq_along(ecdfs), function(i) {
-    data.frame(nucleus = paste0("N", i), x = xs, F = ecdfs[[i]](xs))
-  }))
-  
-  mixF <- null_obj$mix_cdf(xs)
-  df_mix <- data.frame(nucleus = "Mixture (equal-weight)", x = xs, F = mixF)
-  
-  ggplot(df, aes(x = x, y = F, group = nucleus, linetype = nucleus)) +
-    geom_line(color = "black", linewidth = 0.35) +
-    geom_line(data = df_mix, aes(x = x, y = F),
-              color = "black", linewidth = 1.0, linetype = "solid", inherit.aes = FALSE) +
-    theme_classic(base_size = 12) +
-    labs(
-      title = paste0("Random ECDFs per nucleus: ", target),
-      subtitle = "Thin: each nucleus; Thick: equal-weight mixture null",
-      x = "Distance to speckle surface (µm)",
-      y = "ECDF",
-      linetype = NULL
-    ) +
-    guides(linetype = "none")
-}
-
 # Primary: one-sided KS on percentiles (closer-than-random)
 analyze_rna_vs_null <- function(rna_vec, null_obj, RNA, target,
                                 B = 0,
@@ -216,22 +185,6 @@ analyze_rna_vs_null <- function(rna_vec, null_obj, RNA, target,
   )
 }
 
-make_percentile_plot_df <- function(target_col, null_obj) {
-  out <- list()
-  for (sheet in IR_RNAs_to_plot) {
-    df <- read_excel(file_path, sheet = sheet)
-    if (!target_col %in% names(df)) next
-    
-    v <- df[[target_col]]
-    v <- v[is.finite(v)]
-    if (length(v) < 3) next
-    
-    p <- null_obj$mix_cdf(v)
-    out[[sheet]] <- tibble(RNA = sheet, percentile = p)
-  }
-  bind_rows(out)
-}
-
 make_density_df <- function(target_col, null_obj) {
   out <- list()
   for (sheet in IR_RNAs_to_plot) {
@@ -264,9 +217,6 @@ order_by_median <- function(plot_df) {
 # =========================================================
 null_SC35 <- build_mixture_null("SC35")
 null_U2   <- build_mixture_null("U2")
-
-print(plot_random_ecdfs(null_SC35))
-print(plot_random_ecdfs(null_U2))
 
 # =========================================================
 # RUN ANALYSIS FOR ALL RNAs
@@ -341,103 +291,16 @@ print(res_df)
 print(res_df %>% count(target, closer_median_report) %>% arrange(target, desc(n)))
 print(res_df %>% count(target, closer_mean_report) %>% arrange(target, desc(n)))
 
+output_path <- file.path(output_dir, "iPS_IRRNA_equalweight_mixture_results_KS.csv")
+write.csv(res_df, output_path, row.names = FALSE)
 # =========================================================
-# PLOTS
 # =========================================================
-pdat_sc35 <- make_percentile_plot_df("SC35", null_SC35)
-p_sc35 <- ggplot(pdat_sc35, aes(x = percentile)) +
-  geom_histogram(color = "black", bins = 25) +
-  facet_wrap(~RNA, ncol = 4) +
-  theme_classic(base_size = 12) +
-  labs(
-    title = "SC35: IR distances as percentiles vs equal-weight random null",
-    subtitle = "Random expectation: ~Uniform(0–1). Left-shift => closer to speckles.",
-    x = "Percentile p = F_mix(distance)",
-    y = "Count"
-  )
-print(p_sc35)
+# OVERLAY DENSITY PLOTS
+# =========================================================
+library(patchwork)
 
-pdat_u2 <- make_percentile_plot_df("U2", null_U2)
-p_u2 <- ggplot(pdat_u2, aes(x = percentile)) +
-  geom_histogram(color = "black", bins = 25) +
-  facet_wrap(~RNA, ncol = 4) +
-  theme_classic(base_size = 12) +
-  labs(
-    title = "U2: IR distances as percentiles vs equal-weight random null",
-    subtitle = "Random expectation: ~Uniform(0–1). Left-shift => closer to speckles.",
-    x = "Percentile p = F_mix(distance)",
-    y = "Count"
-  )
-print(p_u2)
-
-##### Density plots
+# Build density data
 dens_u2 <- make_density_df("U2", null_U2)
-
-# define RNA order from U2
-u2_order <- order_by_median(dens_u2)
-
-dens_u2 <- dens_u2 %>%
-  mutate(RNA = factor(RNA, levels = u2_order))
-
-p_u2_dens <- ggplot(dens_u2, aes(x = distance, linetype = group)) +
-  geom_density(color = "black", linewidth = 0.8, adjust = 1) +
-  theme_classic(base_size = 12) +
-  facet_wrap(~RNA, ncol = 4) +
-  labs(
-    title = "U2: IR-RNA vs Random (mixture null), ordered by IR median",
-    subtitle = paste0("Primary test: one-sided KS on percentiles; B=", B),
-    x = "Distance to speckle surface (µm)",
-    y = "Density",
-    linetype = NULL
-  )
-
-dens_sc35 <- make_density_df("SC35", null_SC35) %>%
-  mutate(RNA = factor(RNA, levels = u2_order))
-
-p_sc35_dens <- ggplot(dens_sc35, aes(x = distance, linetype = group)) +
-  geom_density(color = "black", linewidth = 0.8, adjust = 1) +
-  theme_classic(base_size = 12) +
-  facet_wrap(~RNA, ncol = 4) +
-  labs(
-    title = "SC35: IR-RNA vs Random (mixture null), ordered as in U2",
-    subtitle = paste0("Primary test: one-sided KS on percentiles; B=", B),
-    x = "Distance to speckle surface (µm)",
-    y = "Density",
-    linetype = NULL
-  )
-
-print(p_u2_dens)
-print(p_sc35_dens)
-
-
-# Save SC35 density plot
-ggsave(
-  filename = "p_sc35_dens_iPS.pdf",
-  plot = p_sc35_dens,
-  width = 8,
-  height = 8
-)
-
-ggsave(
-  filename = "p_u2_dens_iPS.pdf",
-  plot = p_u2_dens,
-  width = 8,
-  height = 8
-)
-
-# =========================================================
-# OVERLAY DENSITY PLOTS: all genes + random on top of each other
-# =========================================================
-# dark purple -> light purple palette
-purple_pal <- colorRampPalette(c("#2D004B", "#5B1A8B", "#8E44AD", "#C39BD3", "#E8DAEF"))(length(u2_order))
-names(purple_pal) <- u2_order
-
-# =========================================================
-# OVERLAY DENSITY PLOTS: same colors as now, but aesthetics like your script
-# =========================================================
-dens_u2 <- make_density_df("U2", null_U2)
-
-# define RNA order from U2
 u2_order <- order_by_median(dens_u2)
 
 dens_u2 <- dens_u2 %>%
@@ -446,22 +309,22 @@ dens_u2 <- dens_u2 %>%
 dens_sc35 <- make_density_df("SC35", null_SC35) %>%
   mutate(RNA = factor(RNA, levels = u2_order))
 
-# Split IR-RNA and random
+# Split IR-RNA and random mixture
 ir_u2 <- dens_u2 %>% filter(group == "IR-RNA")
 ir_sc35 <- dens_sc35 %>% filter(group == "IR-RNA")
 
 rand_u2 <- tibble(distance = null_U2$rand_mix_sample)
 rand_sc35 <- tibble(distance = null_SC35$rand_mix_sample)
 
-# palettes
+# Color palettes
 green_pal <- colorRampPalette(c("#0B3D2E", "#1B5E20", "#2E7D32", "#66BB6A", "#C8E6C9"))(length(u2_order))
 names(green_pal) <- u2_order
 
 red_pal <- colorRampPalette(c("#4A0D0D", "#7F0000", "#B22222", "#E57373", "#FAD4D4"))(length(u2_order))
 names(red_pal) <- u2_order
 
-# U2 = red
-p_u2_dens <- ggplot() +
+# U2 overlay
+p_u2_overlay <- ggplot() +
   geom_density(
     data = ir_u2,
     aes(x = distance, colour = RNA, fill = RNA, group = RNA),
@@ -490,8 +353,8 @@ p_u2_dens <- ggplot() +
     fill = "RNA"
   )
 
-# SC35 = green
-p_sc35_dens <- ggplot() +
+# SC35 overlay
+p_sc35_overlay <- ggplot() +
   geom_density(
     data = ir_sc35,
     aes(x = distance, colour = RNA, fill = RNA, group = RNA),
@@ -520,29 +383,30 @@ p_sc35_dens <- ggplot() +
     fill = "RNA"
   )
 
-print(p_u2_dens)
-print(p_sc35_dens)
-
-ggsave("p_u2_dens_overlay_red_iPS.pdf", plot = p_u2_dens, width = 8, height = 6)
-ggsave("p_sc35_dens_overlay_green_iPS.pdf", plot = p_sc35_dens, width = 8, height = 6)
-
-library(patchwork)
-
-p_side_by_side <- p_u2_dens + p_sc35_dens +
+# Side-by-side combined plot
+p_overlay_side_by_side <- p_u2_overlay + p_sc35_overlay +
   plot_layout(ncol = 2, guides = "collect") &
   theme(legend.position = "right")
 
-print(p_side_by_side)
+# Save plots
+ggsave(
+  filename = file.path(output_dir, "p_u2_dens_overlay_red_iPS.pdf"),
+  plot = p_u2_overlay,
+  width = 8,
+  height = 6
+)
 
 ggsave(
-  "p_u2_sc35_side_by_side_iPS.pdf",
-  plot = p_side_by_side,
+  filename = file.path(output_dir, "p_sc35_dens_overlay_green_iPS.pdf"),
+  plot = p_sc35_overlay,
+  width = 8,
+  height = 6
+)
+
+ggsave(
+  filename = file.path(output_dir, "p_u2_sc35_side_by_side_iPS.pdf"),
+  plot = p_overlay_side_by_side,
   width = 16,
   height = 6
 )
-# =========================================================
-# SAVE RESULTS
-# =========================================================
-output_path <- file.path(analysis_dir, "iPS_IRRNA_equalweight_mixture_results_KS.csv")
-write.csv(res_df, output_path, row.names = FALSE)
-message("Saved results: ", output_path)
+

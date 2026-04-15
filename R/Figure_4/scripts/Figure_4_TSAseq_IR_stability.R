@@ -1,36 +1,68 @@
+# =========================================================
+# Figure 4: TSA-seq overlap by IR stability class
+#
+# Expected repository structure:
+# Figure_4/
+# ├── data/
+# │   ├── merged_data_GC_filtered.csv
+# │   └── GSE81553_SON_TSA-Seq_Decile_Color_Condition2.bed
+# ├── results/
+# └── scripts/
+#     └── Figure_4_TSAseq_IR_stability.R
+#
+# This script assumes it is run from the scripts/ folder.
+#
+# Input file notes:
+# merged_data_GC_filtered.csv is a prefiltered table in which introns were
+# retained only if they had:
+# - at least 5 non-missing nuclear PIR values across the time course
+# - Nuc_UT_TPM_mean >= 5
+# =========================================================
+
+# -----------------------------
+# Libraries
+# -----------------------------
 library(GenomicRanges)
 library(dplyr)
 library(ggplot2)
 library(tidyr)
 library(RColorBrewer)
+library(readr)
 
-analysis_dir <- here::here("R", "Figure_4")
-setwd(analysis_dir)
+# -----------------------------
+# Paths
+# -----------------------------
+bed_file <- "../data/GSE81553_SON_TSA-Seq_Decile_Color_Condition2.bed"
+input_file <- "../data/merged_data_GC_filtered.csv"
+output_dir <- "../results"
 
-bed_path <- file.path(analysis_dir, "GSE81553_SON_TSA-Seq_Decile_Color_Condition2.bed")
-merged_data_path <- here::here("data", "merged_data_GC2.tsv")
+dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 
-if (!file.exists(bed_path)) {
-  stop("Missing input file: ", bed_path, call. = FALSE)
+if (!file.exists(bed_file)) {
+  stop("BED file not found: ", bed_file)
 }
-if (!file.exists(merged_data_path)) {
-  stop("Missing input file: ", merged_data_path, call. = FALSE)
+
+if (!file.exists(input_file)) {
+  stop("Input file not found: ", input_file)
 }
 
-# 1. Load TSA-Seq bed file
+# -----------------------------
+# Load data
+# -----------------------------
 bed_data <- read.table(
-  bed_path,
+  bed_file,
   header = FALSE
 )
 
-# 2. Load merged dataset
-merged_data_GC <- read.delim(
-  merged_data_path,
-  stringsAsFactors = FALSE
+merged_data_GC_filtered <- read_csv(
+  input_file,
+  show_col_types = FALSE
 )
 
-# 3. Convert columns to numeric
-merged_data_GC <- merged_data_GC %>%
+# -----------------------------
+# Convert relevant columns to numeric
+# -----------------------------
+merged_data_GC_filtered <- merged_data_GC_filtered %>%
   mutate(
     Nuc_UT_mean = as.numeric(as.character(Nuc_UT_mean)),
     Nuc_30_mean = as.numeric(as.character(Nuc_30_mean)),
@@ -39,10 +71,24 @@ merged_data_GC <- merged_data_GC %>%
     Cyt_UT_mean = as.numeric(as.character(Cyt_UT_mean)),
     Cyt_30_mean = as.numeric(as.character(Cyt_30_mean)),
     Cyt_2h_mean = as.numeric(as.character(Cyt_2h_mean)),
-    Cyt_4h_mean = as.numeric(as.character(Cyt_4h_mean))
+    Cyt_4h_mean = as.numeric(as.character(Cyt_4h_mean)),
+    Nuc_UT_TPM_mean = as.numeric(as.character(Nuc_UT_TPM_mean)),
+    Nuc_30_TPM_mean = as.numeric(as.character(Nuc_30_TPM_mean)),
+    Nuc_2h_TPM_mean = as.numeric(as.character(Nuc_2h_TPM_mean)),
+    Nuc_4h_TPM_mean = as.numeric(as.character(Nuc_4h_TPM_mean)),
+    Cyt_UT_TPM_mean = as.numeric(as.character(Cyt_UT_TPM_mean)),
+    Cyt_30_TPM_mean = as.numeric(as.character(Cyt_30_TPM_mean)),
+    Cyt_2h_TPM_mean = as.numeric(as.character(Cyt_2h_TPM_mean)),
+    Cyt_4h_TPM_mean = as.numeric(as.character(Cyt_4h_TPM_mean))
   )
 
-merged_data_GC <- merged_data_GC %>%
+cat("Loaded rows:", nrow(merged_data_GC_filtered), "\n")
+cat("Duplicated EVENT entries:", sum(duplicated(merged_data_GC_filtered$EVENT)), "\n")
+
+# -----------------------------
+# Recreate stability columns
+# -----------------------------
+merged_data_GC_filtered <- merged_data_GC_filtered %>%
   mutate(
     Nuc_A_UT_IR_stability = Nuc_A_UT_1.x / Nuc_UT_mean,
     Nuc_B_UT_IR_stability = Nuc_B_UT_1.x / Nuc_UT_mean,
@@ -52,42 +98,25 @@ merged_data_GC <- merged_data_GC %>%
     Nuc_B_2h_IR_stability = Nuc_B_2h_1.x / Nuc_UT_mean,
     Nuc_A_4h_IR_stability = Nuc_A_4h_1.x / Nuc_UT_mean,
     Nuc_B_4h_IR_stability = Nuc_B_4h_1.x / Nuc_UT_mean
-  )
-
-# 4. Create stability columns
-merged_data_GC_filtered <- merged_data_GC %>%
+  ) %>%
   mutate(
     Nuc_UT_TPM_stability = Nuc_UT_TPM_mean / Nuc_UT_TPM_mean,
     Nuc_30_TPM_stability = Nuc_30_TPM_mean / Nuc_UT_TPM_mean,
     Nuc_2h_TPM_stability = Nuc_2h_TPM_mean / Nuc_UT_TPM_mean,
     Nuc_4h_TPM_stability = Nuc_4h_TPM_mean / Nuc_UT_TPM_mean
-  )
-
-merged_data_GC_filtered <- merged_data_GC_filtered %>%
-  mutate(
-    Cyt_UT_mean = as.numeric(as.character(Cyt_UT_mean)),
-    Cyt_30_mean = as.numeric(as.character(Cyt_30_mean)),
-    Cyt_2h_mean = as.numeric(as.character(Cyt_2h_mean)),
-    Cyt_4h_mean = as.numeric(as.character(Cyt_4h_mean))
-  )
-
-merged_data_GC_filtered <- merged_data_GC_filtered %>%
+  ) %>%
   mutate(
     Cyt_UT_TPM_stability = Cyt_UT_TPM_mean / Cyt_UT_TPM_mean,
     Cyt_30_TPM_stability = Cyt_30_TPM_mean / Cyt_UT_TPM_mean,
     Cyt_2h_TPM_stability = Cyt_2h_TPM_mean / Cyt_UT_TPM_mean,
     Cyt_4h_TPM_stability = Cyt_4h_TPM_mean / Cyt_UT_TPM_mean
-  )
-
-merged_data_GC_filtered <- merged_data_GC_filtered %>%
+  ) %>%
   mutate(
     Nuc_UT_IR_stability = Nuc_UT_mean / Nuc_UT_mean,
     Nuc_30_IR_stability = Nuc_30_mean / Nuc_UT_mean,
     Nuc_2h_IR_stability = Nuc_2h_mean / Nuc_UT_mean,
     Nuc_4h_IR_stability = Nuc_4h_mean / Nuc_UT_mean
-  )
-
-merged_data_GC_filtered <- merged_data_GC_filtered %>%
+  ) %>%
   mutate(
     Cyt_UT_IR_stability = Cyt_UT_mean / Cyt_UT_mean,
     Cyt_30_IR_stability = Cyt_30_mean / Cyt_UT_mean,
@@ -95,23 +124,17 @@ merged_data_GC_filtered <- merged_data_GC_filtered %>%
     Cyt_4h_IR_stability = Cyt_4h_mean / Cyt_UT_mean
   )
 
-# 5. Filter rows with enough non-NA values
-merged_data_GC_filtered <- merged_data_GC_filtered %>%
-  mutate(
-    non_na_count = rowSums(!is.na(dplyr::select(
-      ., Nuc_A_UT_1.x, Nuc_B_UT_1.x, Nuc_A_30_1.x, Nuc_B_30_1.x,
-      Nuc_A_2h_1.x, Nuc_B_2h_1.x, Nuc_A_4h_1.x, Nuc_B_4h_1.x
-    )))
-  ) %>%
-  filter(non_na_count >= 5)
-
-# 6. Keep top intron per gene when needed
+# -----------------------------
+# One row per gene when needed
+# -----------------------------
 merged_data_GC_filtered_GENE <- merged_data_GC_filtered %>%
   group_by(GENE) %>%
   top_n(1, Nuc_UT_mean) %>%
   ungroup()
 
-# 7. Assign stability classes
+# -----------------------------
+# Assign stability classes
+# -----------------------------
 IR_UT <- merged_data_GC_filtered %>%
   filter(
     Nuc_UT_mean >= 30 &
@@ -194,17 +217,31 @@ noIR_GENE <- merged_data_GC_filtered_GENE %>%
   mutate(stability = "no_IR_GENE") %>%
   distinct(GENE, .keep_all = TRUE)
 
-# 8. Keep TPM-filtered rows
-combined_data <- bind_rows(stableR4h, unstableR4h, unstableR30min, unstableR2h, noIR)
+cat("Number of noIR_GENE rows:", nrow(noIR_GENE), "\n")
+
+# -----------------------------
+# Build filtered combined table
+# -----------------------------
+combined_data <- bind_rows(
+  stableR4h,
+  unstableR4h,
+  unstableR30min,
+  unstableR2h,
+  noIR
+)
 
 combined_dataTPMno100 <- combined_data %>%
-  filter(Nuc_UT_TPM_mean >= 5) %>%
   filter(
     is.na(Cyt_A_UT_1.x) | is.na(Cyt_B_UT_1.x) |
       (Cyt_A_UT_1.x < 99 & Cyt_B_UT_1.x < 99)
   )
 
-# 9. Remove overlapping genes between stability classes
+cat("Rows in combined_dataTPMno100:", nrow(combined_dataTPMno100), "\n")
+cat("Duplicated EVENTs in combined_dataTPMno100:", sum(duplicated(combined_dataTPMno100$EVENT)), "\n")
+
+# -----------------------------
+# Remove overlapping genes between IR classes
+# -----------------------------
 sets_list <- list(
   "Stable 4h" = unique(stableR4h$GENE),
   "Unstable 4h" = unique(unstableR4h$GENE),
@@ -222,7 +259,10 @@ exclusive_unstable2h <- setdiff(
   union(sets_list[["Stable 4h"]], sets_list[["Unstable 4h"]])
 )
 
-exclusive_unstable4h <- setdiff(unstableR4h$GENE, stableR4h$GENE)
+exclusive_unstable4h <- setdiff(
+  unstableR4h$GENE,
+  stableR4h$GENE
+)
 
 df_stable4h <- stableR4h %>%
   dplyr::select(GENE) %>%
@@ -261,7 +301,9 @@ combined_exclusive <- combined_dataTPMno100 %>%
 combined_exclusive_unique <- combined_exclusive %>%
   distinct(GENE, .keep_all = TRUE)
 
-# 10. Build TSA GRanges
+# -----------------------------
+# Build TSA-Seq GRanges
+# -----------------------------
 bed_data <- bed_data[grepl("Group_\\d+$", bed_data$V4), ]
 
 bed_granges <- GRanges(
@@ -270,14 +312,18 @@ bed_granges <- GRanges(
 )
 mcols(bed_granges)$group <- bed_data$V4
 
-# 11. Split by stability class
+# -----------------------------
+# Split by stability class
+# -----------------------------
 unstable_30IR <- combined_exclusive_unique[combined_exclusive_unique$GENE_stability == "unstable_30min", ]
 unstable_2hIR <- combined_exclusive_unique[combined_exclusive_unique$GENE_stability == "unstable_2h", ]
 unstable_4hIR <- combined_exclusive_unique[combined_exclusive_unique$GENE_stability == "unstable_4h", ]
 stable_4hr    <- combined_exclusive_unique[combined_exclusive_unique$GENE_stability == "stable_4h", ]
 noIR_df_input <- noIR_GENE[noIR_GENE$stability == "no_IR_GENE", ]
 
-# 12. Keep one representative intron per gene
+# -----------------------------
+# Keep one representative intron per gene
+# -----------------------------
 extract_representative_intron <- function(df) {
   df <- df[!is.na(df$COORD), ]
   df <- df[!duplicated(df$GENE), ]
@@ -290,7 +336,9 @@ unstable_4h_df <- extract_representative_intron(unstable_4hIR)
 stable_df      <- extract_representative_intron(stable_4hr)
 noIR_df        <- extract_representative_intron(noIR_df_input)
 
-# 13. Convert to GRanges
+# -----------------------------
+# Convert coordinates to GRanges
+# -----------------------------
 coord_to_granges <- function(df) {
   coord_parts <- do.call(rbind, strsplit(df$COORD, ":|-"))
   GRanges(
@@ -311,8 +359,9 @@ results_list_granges <- list(
   "noIR"           = coord_to_granges(noIR_df)
 )
 
-# 14. Stacked barplot data:
-#     denominator = overlap-positive unique genes only
+# -----------------------------
+# Overlap percentages by TSA group
+# -----------------------------
 get_overlap_percentages_overlap_only <- function(gr, label) {
   hits <- findOverlaps(gr, bed_granges)
   
@@ -350,12 +399,14 @@ tsa_overlap_plot$stability <- factor(
   levels = c("stable", "unstable 30min", "unstable 2h", "unstable 4h", "noIR")
 )
 
-# Optional check: sums can be slightly above 100 if a few genes overlap >1 decile
 tsa_overlap_plot %>%
   group_by(stability) %>%
-  summarise(total_percent = sum(percent))
+  summarise(total_percent = sum(percent), .groups = "drop") %>%
+  print()
 
-# 15. Remade stacked barplot
+# -----------------------------
+# Plot
+# -----------------------------
 t <- ggplot(tsa_overlap_plot, aes(x = stability, y = percent, fill = group)) +
   geom_bar(stat = "identity", position = "stack", color = "black") +
   scale_fill_manual(values = colorRampPalette(brewer.pal(9, "Blues"))(10)) +
@@ -369,30 +420,37 @@ t <- ggplot(tsa_overlap_plot, aes(x = stability, y = percent, fill = group)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 print(t)
-ggsave("TSASeq_IR_stability_stacked_barplot.pdf", plot = t, width = 7, height = 5)
+output_dir <- "../results"
+dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 
-# 16. Export per-decile percentage table for the plot
+ggsave(
+  filename = file.path(output_dir, "TSASeq_IR_stability_stacked_barplot.pdf"),
+  plot = t,
+  width = 7,
+  height = 5
+)
+
+# -----------------------------
+# Export percentage table
+# -----------------------------
+output_dir <- "../results"
+dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
+
 percent_table <- tsa_overlap_plot %>%
   dplyr::select(group, stability, percent) %>%
   pivot_wider(names_from = stability, values_from = percent)
 
-count_table <- tsa_overlap_plot %>%
-  dplyr::select(group, stability, count) %>%
-  pivot_wider(names_from = stability, values_from = count)
-
 print(percent_table, n = Inf)
-print(count_table, n = Inf)
 
-write.csv(percent_table, "TSAseq_stability_group_percentages_overlap_positive_corrected.csv", row.names = FALSE)
-write.csv(count_table, "TSAseq_stability_group_counts_overlap_positive.csv", row.names = FALSE)
+write.csv(
+  percent_table,
+  file.path(output_dir, "TSAseq_stability_group_percentages_overlap_positive_corrected.csv"),
+  row.names = FALSE
+)
 
-#### Overlap-positive unique genes only: proximal = overlaps Group_9 or Group_10 ####
-#####################################################################################
-
-# For each representative intron/gene:
-# - keep only those with ANY TSA overlap
-# - count each intron once
-# - proximal = overlaps Group_9 or Group_10 at least once
+# -----------------------------
+# Proximal overlap summary
+# -----------------------------
 get_overlap_positive_proximal <- function(gr, label) {
   hits <- findOverlaps(gr, bed_granges)
   
@@ -411,7 +469,6 @@ get_overlap_positive_proximal <- function(gr, label) {
   return(df)
 }
 
-# Build one row per overlap-positive intron/gene
 tsa_proximal_overlap_only <- bind_rows(
   get_overlap_positive_proximal(results_list_granges[["stable"]], "stable"),
   get_overlap_positive_proximal(results_list_granges[["unstable 30min"]], "unstable 30min"),
@@ -420,7 +477,6 @@ tsa_proximal_overlap_only <- bind_rows(
   get_overlap_positive_proximal(results_list_granges[["noIR"]], "noIR")
 )
 
-# Summary table: percentages among overlap-positive genes only
 proximal_overlap_positive_summary <- tsa_proximal_overlap_only %>%
   group_by(stability) %>%
   summarise(
@@ -433,13 +489,9 @@ proximal_overlap_positive_summary <- tsa_proximal_overlap_only %>%
 
 print(proximal_overlap_positive_summary)
 
-write.csv(
-  proximal_overlap_positive_summary,
-  "TSAseq_Group9_10_overlap_positive_percentages.csv",
-  row.names = FALSE
-)
-
-# Fisher test using the same overlap-positive unique-gene definition
+# -----------------------------
+# Fisher tests
+# -----------------------------
 test_proximal_enrichment_overlap_only <- function(group1, group2, df) {
   df_sub <- df %>% filter(stability %in% c(group1, group2))
   
@@ -454,7 +506,7 @@ test_proximal_enrichment_overlap_only <- function(group1, group2, df) {
     value = sprintf("Groups 9-10 overlap: %.1f%% vs %.1f%%", pct1, pct2),
     group = paste(group1, "|", group2),
     test = "Fisher exact",
-    statistic = unname(test$estimate),   # odds ratio
+    statistic = unname(test$estimate),
     `p-value` = test$p.value,
     check.names = FALSE
   )
@@ -467,13 +519,15 @@ fisher_results <- bind_rows(
   test_proximal_enrichment_overlap_only("stable", "noIR", tsa_proximal_overlap_only)
 )
 
-# Multiple-testing correction
 fisher_results$p.adj <- p.adjust(fisher_results$`p-value`, method = "BH")
 
 print(fisher_results)
 
+output_dir <- "../results"
+dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
+
 write.csv(
   fisher_results,
-  "TSAseq_Group9_10_enrichment_vs_stable_corrected.csv",
+  file.path(output_dir, "TSAseq_Group9_10_enrichment_vs_stable_corrected.csv"),
   row.names = FALSE
 )
