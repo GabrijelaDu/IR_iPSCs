@@ -1,4 +1,5 @@
-# Supporting repository for the publication: The periphery of nuclear speckles organizes long-lived intron-retained RNAs into a mitotically resolved distinct nuclear retention compartment
+# Supporting repository for the publication: The periphery of nuclear speckles defines a spatially and temporally regulated compartment of long-lived intron-retained RNAs that resolves during mitosis
+
 
 This repository contains the Python notebooks, R scripts, R Markdown notebooks, shell wrappers, configuration files, and exported analysis outputs used to regenerate manuscript figures and train models to predict IR and IR HL.
 
