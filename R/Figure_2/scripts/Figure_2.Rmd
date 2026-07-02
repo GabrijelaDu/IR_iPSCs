@@ -219,7 +219,7 @@ sum(is.na(noIR_GENE$Nuc_UT_mean))
 combined_data <- bind_rows(stableR4h, unstableR4h, unstableR30min, unstableR2h, noIR)
 ```
 
-### same settings at 50%
+### Stability classification using 50% untreated PIR cutoff
 ```{r}
 # IR at UT (50 cutoff)
 IR_UT_50cut <- subset(merged_data_GC_filtered,
@@ -1121,11 +1121,12 @@ combined_exclusive_filtered <- combined_exclusive_unique %>%
   #filter(stability != "no IR") %>%
   mutate(
     nuc_enrichment_log2FC = log2(Nuc_UT_TPM_mean / Cyt_UT_TPM_mean),
-    stability = factor(as.character(stability),
-                       levels = c("unstable30min", "unstable2h", "unstable 4h", "stable 4h"))
+    GENE_stability = factor(as.character(GENE_stability),
+                       levels = c("unstable_30min", "unstable_2h", "unstable_4h", "stable_4h"))
   )
 
-p3 <- ggplot(combined_exclusive_filtered, aes(x = stability, y = nuc_enrichment_log2FC, fill = stability)) +
+
+p3 <- ggplot(combined_exclusive_filtered, aes(x = GENE_stability, y = nuc_enrichment_log2FC, fill = GENE_stability)) +
   geom_violin(trim = FALSE, alpha = 0.7) +                
   geom_boxplot(width = 0.1, outlier.shape = NA, fill = "white") +
   labs(
@@ -1145,6 +1146,7 @@ p3 <- ggplot(combined_exclusive_filtered, aes(x = stability, y = nuc_enrichment_
     axis.ticks = element_line(color = "black"),
     plot.title = element_text(hjust = 0.5, face = "bold", size = 16)
   )
+
 
 ggsave(
   filename = "Figure_2_p3_30.pdf",
@@ -1344,9 +1346,9 @@ combined_exclusive_filtered_50cut <- combined_exclusive_unique_50cut %>%
   mutate(nuc_enrichment_log2FC = log2(Nuc_UT_TPM_mean / Cyt_UT_TPM_mean))
 
 combined_exclusive_filtered_50cut <- combined_exclusive_filtered_50cut %>%
-  mutate(stability = factor(stability, levels = c("unstable30min", "unstable2h", "unstable 4h", "stable 4h")))
+  mutate(GENE_stability = factor(GENE_stability, levels = c("unstable_30min", "unstable_2h", "unstable_4h", "stable_4h")))
 
-p3_50cut <- ggplot(combined_exclusive_filtered_50cut, aes(x = stability, y = nuc_enrichment_log2FC, fill = stability)) +
+p3_50cut <- ggplot(combined_exclusive_filtered_50cut, aes(x = GENE_stability, y = nuc_enrichment_log2FC, fill = GENE_stability)) +
   geom_violin(trim = FALSE, alpha = 0.7) +
   geom_boxplot(width = 0.1, outlier.shape = NA, fill = "white") +
   labs(title = "Violin Plot of Nuclear Enrichment log2FC (50% cutoff)",
@@ -1363,7 +1365,7 @@ p3_50cut <- ggplot(combined_exclusive_filtered_50cut, aes(x = stability, y = nuc
         plot.title = element_text(hjust = 0.5, face = "bold", size = 16))
 
 ggsave(
-  filename = "Figure_2_p3_50cut.pdf",
+  filename = "Figure_2_p3_50cut2.pdf",
   plot = p3_50cut,
   device = "pdf",
   width = 10,
